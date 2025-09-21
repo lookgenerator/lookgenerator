@@ -20,13 +20,15 @@ export default function Chat() {
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-4">
-        {messages.map((m, i) => (
-          <Message key={i} role={m.role} text={m.text} />
-        ))}
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="flex flex-col w-full max-w-md h-[600px] bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div ref={chatRef} className="flex-1 overflow-y-auto p-4">
+          {messages.map((m, i) => (
+            <Message key={i} role={m.role} text={m.text} />
+          ))}
+        </div>
+        <InputBox onSend={handleSend} />
       </div>
-      <InputBox onSend={handleSend} />
     </div>
   );
 }
