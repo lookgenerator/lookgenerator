@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Message from "./Message";
 import InputBox from "./InputBox";
 
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
+  const chatRef = useRef<HTMLDivElement>(null);
 
   const handleSend = (msg: string) => {
     setMessages((prev) => [
@@ -14,9 +15,13 @@ export default function Chat() {
     ]);
   };
 
+  useEffect(() => {
+    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
   return (
-    <div className="flex flex-col h-screen">
-      <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex flex-col h-screen bg-gray-50">
+      <div ref={chatRef} className="flex-1 overflow-y-auto p-4">
         {messages.map((m, i) => (
           <Message key={i} role={m.role} text={m.text} />
         ))}
