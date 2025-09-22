@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Message from "./Message";
 import InputBox from "./InputBox";
+import useDarkMode from "../hooks/useDarkMode";
+import { Moon, Sun } from "lucide-react";
 
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
@@ -20,6 +22,8 @@ export default function Chat() {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  const [darkMode, setDarkMode] = useDarkMode();
+
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
       <div className="flex flex-col w-full max-w-md h-[650px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
@@ -33,9 +37,15 @@ export default function Chat() {
             height={40}
             className="rounded"
           />
-          <h1 className="text-2xl font-extrabold tracking-tight">
+          <h1 className="flex-1 text-2xl font-extrabold tracking-tight">
             Asistente Virtual
           </h1>
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="p-2 rounded-full hover:bg-green-500/20 transition"
+          >
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
 
         {/* Chat body */}
