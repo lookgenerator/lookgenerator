@@ -21,11 +21,11 @@ export default function Chat() {
   }, [messages]);
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="flex flex-col w-full max-w-md h-[650px] bg-white rounded-2xl shadow-lg overflow-hidden">
+    <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="flex flex-col w-full max-w-md h-[650px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
         
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md">
+        <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
           <Image
             src="https://upload.wikimedia.org/wikipedia/commons/0/02/Logo_Corte_Ingl%C3%A9s.svg"
             alt="El Corte Inglés"
@@ -39,7 +39,7 @@ export default function Chat() {
         </div>
 
         {/* Chat body */}
-        <div ref={chatRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
+        <div ref={chatRef} className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
           {messages.map((m, i) => (
             <Message key={i} role={m.role} text={m.text} />
           ))}
