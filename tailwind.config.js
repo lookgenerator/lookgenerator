@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import lineClamp from "@tailwindcss/line-clamp";
+
 module.exports = {
   darkMode: "class",
   content: [
@@ -10,5 +12,5 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [],
+  plugins: [lineClamp],
 }
