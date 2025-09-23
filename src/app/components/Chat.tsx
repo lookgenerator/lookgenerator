@@ -6,9 +6,10 @@ import InputBox from "./InputBox";
 import useDarkMode from "../hooks/useDarkMode";
 import { Moon, Sun } from "lucide-react";
 import { getProductById } from "../lib/api/products";
+import type { MessageItem } from "../lib/types/chat";
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
   const chatRef = useRef<HTMLDivElement>(null);
 
   const handleSend = async (msg: string) => {
@@ -24,7 +25,13 @@ export default function Chat() {
           ...prev,
           {
             role: "bot",
-            text: `📦 ${product.name}\nCategoría: ${product.category}\nID: ${product.product_id}`,
+            text: `Aquí tienes información del producto:`,
+            product: {
+              id: product.product_id,
+              name: product.name,
+              image_url: product.image_url,
+              category: product.category,
+            },
           },
         ]);
       } catch (err) {
@@ -73,7 +80,7 @@ export default function Chat() {
         {/* Chat body */}
         <div ref={chatRef} className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
           {messages.map((m, i) => (
-            <Message key={i} role={m.role} text={m.text} />
+            <Message key={i} role={m.role} text={m.text} product={m.product}/>
           ))}
         </div>
 
