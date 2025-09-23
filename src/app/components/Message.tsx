@@ -1,14 +1,18 @@
 import { User, Bot } from 'lucide-react'
 import type { ChatProduct } from '../lib/types/chat'
-import ProductCard from "./ProductCard";
+import ProductCard from './ProductCard'
+import SimilarProductsGrid from "./SimilarProductsGrid";
+import SimilarProductsCarousel from "./SimilarProductsCarousel";
 
-type Props = {
-  role: 'user' | 'bot'
-  text: string
-  product?: ChatProduct
+interface Props {
+  role: "user" | "bot";
+  text: string;
+  product?: ChatProduct;
+  products?: ChatProduct[]; // 👈 importante
 }
 
-export default function Message({ role, text, product }: Props) {
+export default function Message({ role, text, product, products }: Props){
+   console.log("Message props:", { text, product, products });
   const isUser = role === 'user'
 
   return (
@@ -33,6 +37,10 @@ export default function Message({ role, text, product }: Props) {
         <p className="mb-2">{text}</p>
 
         {product && <ProductCard product={product} />}
+
+        {/* múltiples productos */}
+        {/* Grid de varios productos */}
+        {products && <SimilarProductsCarousel products={products} />}
       </div>
 
       {isUser && (

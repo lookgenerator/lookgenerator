@@ -40,3 +40,12 @@ export interface DistinctValues {
   column: string;
   values: string[];
 }
+
+export interface SimilarProductsResponse {
+  base_product: {
+    product_id: number;
+    name: string;
+    image_url: string;
+  };
+  neighbors: ProductNeighbor[];
+}
