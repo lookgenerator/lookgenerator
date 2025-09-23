@@ -14,19 +14,17 @@ function DescriptionWithFade({ text }: { text: string }) {
   };
 
   return (
-    <div className="relative group max-h-24 overflow-hidden">
-      {/* Texto con scroll */}
+    <div className="relative group h-full max-h-24 overflow-hidden">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="text-sm text-gray-700 max-h-24 overflow-y-auto px-1 pr-2
+        className="text-sm text-gray-700 h-full max-h-24 overflow-y-auto px-1 pr-2
                    scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent
                    [scrollbar-width:none] group-hover:[scrollbar-width:thin]"
       >
         {text}
       </div>
 
-      {/* Fade inferior (solo si no estamos al final) */}
       {!isAtEnd && (
         <div className="pointer-events-none absolute bottom-0 left-0 w-full h-6 
                         bg-gradient-to-t from-white to-transparent dark:from-gray-800" />
@@ -41,7 +39,7 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
   return (
     <div
       className={`relative transition-all duration-500 ease-in-out ${
-        flipped ? "w-full h-[420px]" : "w-48 h-64"
+        flipped ? "w-full h-[490px]" : "w-48 h-64"
       }`}
     >
       <div
@@ -50,7 +48,10 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
         }`}
       >
         {/* Cara frontal */}
-        <div className="absolute inset-0 [backface-visibility:hidden] flex flex-col items-center justify-between rounded-lg shadow-md bg-white dark:bg-gray-800 overflow-hidden">
+        <div
+          className="absolute inset-0 h-full [backface-visibility:hidden] flex flex-col items-center justify-between 
+                     rounded-lg shadow-md bg-white dark:bg-gray-800 overflow-hidden"
+        >
           <img
             src={product.image_url}
             alt={product.name}
@@ -70,14 +71,18 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
         </div>
 
         {/* Cara trasera */}
-        <div className="absolute inset-0 [transform:rotateY(180deg)] [backface-visibility:hidden] bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col justify-between">
-          <div className="overflow-y-auto">
+        <div
+          className="absolute inset-0 h-full [transform:rotateY(180deg)] [backface-visibility:hidden] 
+                     bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col"
+        >
+          {/* Parte superior */}
+          <div className="flex-shrink-0 p-4">
             <img
               src={product.image_url}
               alt={product.name}
               className="w-full h-40 object-contain mb-3"
             />
-            <div className="font-semibold text-lg mb-2">{product.name}</div>
+            <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
             {product.category && (
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                 Categoría: {product.category}
@@ -86,16 +91,27 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
             {product.id && (
               <p className="text-xs text-gray-400 mb-2">ID: {product.id}</p>
             )}
-            {product.description && (
-              <DescriptionWithFade text={product.description} />
-            )}
           </div>
-          <button
-            className="mt-4 bg-gray-600 text-white px-3 py-1 rounded-md text-xs hover:bg-gray-700 transition-colors"
-            onClick={() => setFlipped(false)}
-          >
-            Volver
-          </button>
+
+          {/* Centro → descripción con scroll */}
+          <div className="flex-1 px-4">
+            <DescriptionWithFade
+              text={
+                product.description ??
+                "Descripción genérica del producto. Aquí aparecerá información extendida cuando se conecte el LLM."
+              }
+            />
+          </div>
+
+          {/* Botón abajo */}
+          <div className="flex-shrink-0 p-4">
+            <button
+              onClick={() => setFlipped(false)}
+              className="w-full bg-gray-600 text-white px-3 py-1 rounded-md text-xs hover:bg-gray-700 transition-colors"
+            >
+              Volver
+            </button>
+          </div>
         </div>
       </div>
     </div>
