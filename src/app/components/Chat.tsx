@@ -5,8 +5,9 @@ import Message from "./Message";
 import InputBox from "./InputBox";
 import useDarkMode from "../hooks/useDarkMode";
 import { Moon, Sun } from "lucide-react";
-import { getProductById } from "../lib/api/products";
-import type { MessageItem } from "../lib/types/chat";
+import { getProductById, getSimilarProducts  } from "../lib/api/products";
+import type { ChatProduct, MessageItem } from "../lib/types/chat";
+import ProductCard from "./ProductCard";
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
@@ -39,11 +40,43 @@ export default function Chat() {
       } catch (err) {
         setMessages((prev) => [
           ...prev,
-          { role: "bot", text: "❌ Error al obtener el producto." },
+          { role: "bot", text: "❌ Error al obtener el producto.",err },
         ]);
       }
       return;
     }
+
+
+      // detectar similares
+  const matchSimilar = msg.match(/similares\s+al\s+(\d+)/i);
+  if (matchSimilar) {
+    const productId = matchSimilar[1];
+try {
+  const data = await getSimilarProducts(productId);
+
+  const similarMessage: MessageItem = {
+  role: "bot",
+  text: `Productos similares al ${productId}:`,
+  products: data.neighbors.map(
+    (p): ChatProduct => ({
+      id: p.product_id,
+      name: p.name,
+      image_url: p.image_url,
+      description: "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
+    })
+  ),
+};
+  console.log("Similar message:", similarMessage);
+  setMessages((prev) => [...prev, similarMessage]);
+} catch (err) {
+  console.error("Error en getSimilarProducts:", err);
+  setMessages((prev) => [
+    ...prev,
+    { role: "bot", text: "❌ Error al obtener productos similares." },
+  ]);
+}
+    return;
+  }
 
     // respuesta por defecto
     setMessages((prev) => [...prev, { role: "bot", text: "No entendí la petición 🤔" }]);
@@ -82,7 +115,7 @@ export default function Chat() {
         {/* Chat body */}
         <div ref={chatRef} className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
           {messages.map((m, i) => (
-            <Message key={i} role={m.role} text={m.text} product={m.product}/>
+            <Message key={i} role={m.role} text={m.text} product={m.product} products={m.products}/>
           ))}
         </div>
 
