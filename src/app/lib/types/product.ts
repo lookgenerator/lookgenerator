@@ -35,3 +35,8 @@ export interface ProductFilter {
   year: number;
   usage: string;
 }
+
+export interface DistinctValues {
+  column: string;
+  values: string[];
+}
