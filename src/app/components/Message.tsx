@@ -1,14 +1,10 @@
 import { User, Bot } from "lucide-react";
+import type { ChatProduct } from "../lib/types/chat";
 
 type Props = {
   role: "user" | "bot";
   text: string;
-  product?: {
-    name: string;
-    image_url: string;
-    category?: string;
-    id?: number;
-  };
+  product?: ChatProduct;
 };
 
 export default function Message({ role, text, product }: Props) {
@@ -29,18 +25,28 @@ export default function Message({ role, text, product }: Props) {
             : "bg-gray-200 text-gray-900 rounded-bl-none dark:bg-gray-700 dark:text-gray-100"
         }`}
       >
-        <p>{text}</p>
+        <p className="mb-2">{text}</p>
+
         {product && (
-          <div className="mt-2 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
             <img
               src={product.image_url}
               alt={product.name}
-              className="w-32 h-32 object-contain mx-auto mb-2 rounded"
+              className="w-full h-40 object-contain bg-gray-50 dark:bg-gray-900"
             />
-            <p className="font-medium">{product.name}</p>
-            {product.category && (
-              <p className="text-sm text-gray-600">{product.category}</p>
-            )}
+            <div className="p-3">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">
+                {product.name}
+              </h3>
+              {product.category && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Categoría: {product.category}
+                </p>
+              )}
+              {product.id && (
+                <p className="text-xs text-gray-400">ID: {product.id}</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -53,4 +59,3 @@ export default function Message({ role, text, product }: Props) {
     </div>
   );
 }
-
