@@ -20,3 +20,18 @@ export interface SimilarProductsResponse {
   };
   neighbors: ProductNeighbor[];
 }
+
+export interface ProductFilter {
+  product_id: number;
+  name: string;
+  category: string;
+  image_url: string;
+  gender: string;
+  mastercategory: string;
+  subcategory: string;
+  articletype: string;
+  basecolour: string;
+  season: string;
+  year: number;
+  usage: string;
+}
