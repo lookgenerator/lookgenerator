@@ -5,17 +5,39 @@ import Message from "./Message";
 import InputBox from "./InputBox";
 import useDarkMode from "../hooks/useDarkMode";
 import { Moon, Sun } from "lucide-react";
+import { getProductById } from "../lib/api/products";
 
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = (msg: string) => {
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text: msg },
-      { role: "bot", text: "Respuesta simulada" },
-    ]);
+  const handleSend = async (msg: string) => {
+    setMessages((prev) => [...prev, { role: "user", text: msg }]);
+
+    // detectar si pide un producto
+    const match = msg.match(/producto\s+(\d+)/i);
+    if (match) {
+      const productId = match[1];
+      try {
+        const product = await getProductById(productId);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "bot",
+            text: `📦 ${product.name}\nCategoría: ${product.category}\nID: ${product.product_id}`,
+          },
+        ]);
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "bot", text: "❌ Error al obtener el producto." },
+        ]);
+      }
+      return;
+    }
+
+    // respuesta por defecto
+    setMessages((prev) => [...prev, { role: "bot", text: "No entendí la petición 🤔" }]);
   };
 
   useEffect(() => {
