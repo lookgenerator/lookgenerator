@@ -31,6 +31,8 @@ export default function Chat() {
               name: product.name,
               image_url: product.image_url,
               category: product.category,
+              description:
+        "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
             },
           },
         ]);

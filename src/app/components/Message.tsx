@@ -1,5 +1,6 @@
 import { User, Bot } from 'lucide-react'
 import type { ChatProduct } from '../lib/types/chat'
+import ProductCard from "./ProductCard";
 
 type Props = {
   role: 'user' | 'bot'
@@ -31,33 +32,7 @@ export default function Message({ role, text, product }: Props) {
       >
         <p className="mb-2">{text}</p>
 
-        {product && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden w-56">
-            {/* Imagen con tamaño fijo */}
-            <div className="w-full h-40 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="max-h-full max-w-full object-contain"
-              />
-            </div>
-
-            {/* Contenido */}
-            <div className="p-3">
-              <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 mb-1 line-clamp-2">
-                {product.name}
-              </h3>
-              {product.category && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                  Categoría: {product.category}
-                </p>
-              )}
-              {product.id && (
-                <p className="text-xs text-gray-400 mt-1">ID: {product.id}</p>
-              )}
-            </div>
-          </div>
-        )}
+        {product && <ProductCard product={product} />}
       </div>
 
       {isUser && (
