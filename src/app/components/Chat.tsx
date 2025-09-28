@@ -37,33 +37,39 @@ export default function Chat() {
 
         // Si el cliente tiene productos asociados
         if (customer.products && customer.products.length > 0) {
-            const productMessages: ChatProduct[] = customer.products.map((p) => ({
-    id: p.product_id,
-    name: p.name,
-    image_url: p.image_url,
-    description:
-      "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
-  }));
+          const baseProduct = customer.products[0]
 
-  const message: MessageItem = {
-    role: "bot",
-    text: `Estos son algunos de tus productos:`,
-    products: productMessages,
-  };
           setMessages(prev => [
             ...prev,
             {
               role: 'bot',
               text: `Estos son algunos de tus productos:`,
-              products: customer.products.map(p => ({
+              product: {
+                id: baseProduct.product_id,
+                name: baseProduct.name,
+                image_url: baseProduct.image_url,
+                description:
+                  'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
+              },
+            },
+          ])
+
+          const data = await getSimilarProducts(baseProduct.product_id)
+
+          const similarMessage: MessageItem = {
+            role: 'bot',
+            text: `Productos similares a ${baseProduct.name}:`,
+            products: data.neighbors.map(
+              (p): ChatProduct => ({
                 id: p.product_id,
                 name: p.name,
                 image_url: p.image_url,
                 description:
                   'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
-              })),
-            },
-          ])
+              })
+            ),
+          }
+          setMessages(prev => [...prev, similarMessage])
         }
       } catch (err) {
         setMessages(prev => [
