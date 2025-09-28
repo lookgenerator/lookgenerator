@@ -8,11 +8,14 @@ import { Moon, Sun } from 'lucide-react'
 import { getProductById, getSimilarProducts } from '../lib/api/products'
 import type { ChatProduct, MessageItem } from '../lib/types/chat'
 import { getCustomerById } from '../lib/api/client'
+import type { Customer } from '../lib/types/customer'
+import { User } from 'lucide-react'
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [customerId, setCustomerId] = useState<string | null>(null)
   const chatRef = useRef<HTMLDivElement>(null)
+  const [customer, setCustomer] = useState<Customer | null>(null)
 
   const handleSend = async (msg: string) => {
     setMessages(prev => [...prev, { role: 'user', text: msg }])
@@ -22,7 +25,7 @@ export default function Chat() {
       try {
         const customer = await getCustomerById(msg.trim())
 
-        setCustomerId(customer.customer_id)
+        setCustomer(customer)
 
         setMessages(prev => [
           ...prev,
@@ -121,6 +124,10 @@ export default function Chat() {
 
   const [darkMode, setDarkMode] = useDarkMode()
 
+  const formatCustomerId = (id: string) => {
+    return `600833......${id.padStart(7, '0')}`
+  }
+
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
       <div className="flex flex-col w-full max-w-md h-[650px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
@@ -136,6 +143,23 @@ export default function Chat() {
           <h1 className="flex-1 text-2xl font-extrabold tracking-tight">
             Asistente Virtual
           </h1>
+
+          {/* Cliente identificado */}
+          {customer && (
+            <div className="flex flex-col items-end text-sm">
+              <div className="flex items-center gap-2">
+                <span className="bg-white/20 p-1 rounded-full">
+                  <User size={16} />
+                </span>
+                <span className="font-semibold">
+                  {customer.first_name} {customer.last_name}
+                </span>
+              </div>
+              <span className="text-xs opacity-80">
+                {formatCustomerId(customer.customer_id)}
+              </span>
+            </div>
+          )}
           <button
             onClick={() => setDarkMode(!darkMode)}
             className="p-2 rounded-full hover:bg-green-500/20 transition"
