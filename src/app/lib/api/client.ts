@@ -1,4 +1,5 @@
 import { getToken } from './auth'
+import type { Customer } from "../types/customer";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!
 
@@ -23,4 +24,8 @@ export async function apiFetch<T>(
   }
 
   return res.json() as Promise<T>
+}
+
+export async function getCustomerById(customerId: string): Promise<Customer> {
+  return apiFetch<Customer>(`/customers/${customerId}`);
 }
