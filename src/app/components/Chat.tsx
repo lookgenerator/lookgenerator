@@ -34,6 +34,37 @@ export default function Chat() {
             text: `✅ Cliente encontrado: **${customer.first_name}** (ID: ${customer.customer_id}).`,
           },
         ])
+
+        // Si el cliente tiene productos asociados
+        if (customer.products && customer.products.length > 0) {
+            const productMessages: ChatProduct[] = customer.products.map((p) => ({
+    id: p.product_id,
+    name: p.name,
+    image_url: p.image_url,
+    description:
+      "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
+  }));
+
+  const message: MessageItem = {
+    role: "bot",
+    text: `Estos son algunos de tus productos:`,
+    products: productMessages,
+  };
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'bot',
+              text: `Estos son algunos de tus productos:`,
+              products: customer.products.map(p => ({
+                id: p.product_id,
+                name: p.name,
+                image_url: p.image_url,
+                description:
+                  'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
+              })),
+            },
+          ])
+        }
       } catch (err) {
         setMessages(prev => [
           ...prev,
