@@ -12,5 +12,5 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [lineClamp],
+  plugins: [],
 }
