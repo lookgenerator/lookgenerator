@@ -1,10 +1,10 @@
 "use client";
-import { useState, forwardRef } from "react";
+import { useState } from "react";
 
 type Props = {
   onSend: (msg: string) => void;
   disabled?: boolean;
-  inputRef?: React.RefObject<HTMLInputElement>;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
 export default function InputBox({ onSend, disabled=false, inputRef }: Props) {
