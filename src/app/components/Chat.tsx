@@ -10,147 +10,137 @@ import type { ChatProduct, MessageItem } from '../lib/types/chat'
 import { getCustomerById } from '../lib/api/client'
 import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
+import { detectIntent } from "../lib/api/llm"
+
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
-  const [customerId, setCustomerId] = useState<string | null>(null)
   const chatRef = useRef<HTMLDivElement>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
 
   const handleSend = async (msg: string) => {
-    setMessages(prev => [...prev, { role: 'user', text: msg }])
+  setMessages(prev => [...prev, { role: "user", text: msg }])
 
-    // detectar si es un número (posible customerId)
-    if (/^\d+$/.test(msg.trim())) {
-      try {
-        const customer = await getCustomerById(msg.trim())
+  try {
+    const { intent, entities } = await detectIntent(msg)
 
-        setCustomer(customer)
+    // 🔎 DEBUG solo si NEXT_PUBLIC_DEBUG = "true"
+    if (process.env.NEXT_PUBLIC_DEBUG === "true") {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "bot",
+          text: `🛠️ Debug → Intent: **${intent}** | Entities: ${JSON.stringify(
+            entities
+          )}`,
+        },
+      ])
+    }
 
+    switch (intent) {
+      case "saludo":
         setMessages(prev => [
           ...prev,
-          {
-            role: 'bot',
-            text: `✅ Cliente encontrado: **${customer.first_name}** (ID: ${customer.customer_id}).`,
-          },
+          { role: "bot", text: "👋 ¡Hola! ¿En qué puedo ayudarte hoy?" },
         ])
+        break
 
-        // Si el cliente tiene productos asociados
-        if (customer.products && customer.products.length > 0) {
-          const baseProduct = customer.products[0]
+      case "identificar_usuario":
+        if (entities.customer_id) {
+          try {
+            const customer = await getCustomerById(String(entities.customer_id))
+            setCustomer(customer)
 
-          setMessages(prev => [
-            ...prev,
-            {
-              role: 'bot',
-              text: `Estos son algunos de tus productos:`,
-              product: {
-                id: baseProduct.product_id,
-                name: baseProduct.name,
-                image_url: baseProduct.image_url,
-                description:
-                  'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
+            setMessages(prev => [
+              ...prev,
+              {
+                role: "bot",
+                text: `✅ Cliente encontrado: **${customer.first_name}** (ID: ${customer.customer_id}).`,
               },
-            },
-          ])
+            ])
 
-          const data = await getSimilarProducts(baseProduct.product_id)
+            if (customer.products && customer.products.length > 0) {
+              const baseProduct = customer.products[0]
 
-          const similarMessage: MessageItem = {
-            role: 'bot',
-            text: `Productos similares a ${baseProduct.name}:`,
-            products: data.neighbors.map(
-              (p): ChatProduct => ({
-                id: p.product_id,
-                name: p.name,
-                image_url: p.image_url,
-                description:
-                  'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
-              })
-            ),
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: "bot",
+                  text: `Estos son algunos de tus productos:`,
+                  product: {
+                    id: baseProduct.product_id,
+                    name: baseProduct.name,
+                    image_url: baseProduct.image_url,
+                    description:
+                      "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
+                  },
+                },
+              ])
+
+              const data = await getSimilarProducts(baseProduct.product_id)
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: "bot",
+                  text: `Productos similares a ${baseProduct.name}:`,
+                  products: data.neighbors.map((p) => ({
+                    id: p.product_id,
+                    name: p.name,
+                    image_url: p.image_url,
+                    description:
+                      "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
+                  })),
+                },
+              ])
+            }
+          } catch (err) {
+            setMessages(prev => [
+              ...prev,
+              { role: "bot", text: `❌ No se encontró un cliente con ese ID. (${err})` },
+            ])
           }
-          setMessages(prev => [...prev, similarMessage])
         }
-      } catch (err) {
+        break
+
+      case "ver_mas_producto":
+        setMessages(prev => [
+          ...prev,
+          { role: "bot", text: "Aquí iría la lógica de 'ver más producto' 🔍" },
+        ])
+        break
+
+      case "recomendaciones_producto":
+        setMessages(prev => [
+          ...prev,
+          { role: "bot", text: "Aquí iría la lógica para dar recomendaciones de producto 💡" },
+        ])
+        break
+
+      case "buscar_por_descripcion":
         setMessages(prev => [
           ...prev,
           {
-            role: 'bot',
-            text: `❌ No se encontró un cliente con ese ID. (${err})`,
+            role: "bot",
+            text: `Buscando productos que coincidan con: "${entities.descripcion}" 🔎`,
           },
         ])
-      }
-      return
-    }
+        break
 
-    // detectar si pide un producto
-    const match = msg.match(/producto\s+(\d+)/i)
-    if (match) {
-      const productId = match[1]
-      try {
-        const product = await getProductById(productId)
+      default:
         setMessages(prev => [
           ...prev,
-          {
-            role: 'bot',
-            text: `Aquí tienes información del producto:`,
-            product: {
-              id: product.product_id,
-              name: product.name,
-              image_url: product.image_url,
-              category: product.category,
-              description:
-                'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
-            },
-          },
+          { role: "bot", text: "No entendí la petición 🤔" },
         ])
-      } catch (err) {
-        setMessages(prev => [
-          ...prev,
-          { role: 'bot', text: '❌ Error al obtener el producto.', err },
-        ])
-      }
-      return
     }
-
-    // detectar similares
-    const matchSimilar = msg.match(/similares\s+al\s+(\d+)/i)
-    if (matchSimilar) {
-      const productId = matchSimilar[1]
-      try {
-        const data = await getSimilarProducts(productId)
-
-        const similarMessage: MessageItem = {
-          role: 'bot',
-          text: `Productos similares al ${productId}:`,
-          products: data.neighbors.map(
-            (p): ChatProduct => ({
-              id: p.product_id,
-              name: p.name,
-              image_url: p.image_url,
-              description:
-                'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
-            })
-          ),
-        }
-        console.log('Similar message:', similarMessage)
-        setMessages(prev => [...prev, similarMessage])
-      } catch (err) {
-        console.error('Error en getSimilarProducts:', err)
-        setMessages(prev => [
-          ...prev,
-          { role: 'bot', text: '❌ Error al obtener productos similares.' },
-        ])
-      }
-      return
-    }
-
-    // respuesta por defecto
+  } catch (err) {
+    console.error("Error detectando intención:", err)
     setMessages(prev => [
       ...prev,
-      { role: 'bot', text: 'No entendí la petición 🤔' },
+      { role: "bot", text: "❌ Error procesando tu mensaje." },
     ])
   }
+}
+
 
   useEffect(() => {
     chatRef.current?.scrollTo({
