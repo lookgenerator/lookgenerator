@@ -5,23 +5,24 @@ const client = new OpenAI({
 });
 
 export async function generateGreeting(message: string) {
+  const randomSeed = Math.floor(Math.random() * 10000);
+
   const prompt = `
-Eres un asistente virtual de una tienda online.
-Genera un saludo breve, natural y diferente cada vez que el usuario salude.
-El saludo debe sonar humano, cercano y positivo.
+Eres un asistente virtual amable de una tienda online.
+Si el usuario está autenticado y el mensaje indica su nombre (ejemplo: "Usuario autenticado: Laura"), debes saludarlo usando su nombre.
+Si no hay nombre, genera un saludo general, breve, natural y diferente cada vez.
+El saludo debe sonar humano, positivo y cercano.
 
-Si el mensaje contiene un nombre, usa ese nombre en el saludo.
-Varía el estilo y la estructura en cada respuesta (usa diferentes expresiones, emojis y formas de saludo).
+Varía el estilo y estructura en cada respuesta (usa distintos emojis o frases).
 
-Ejemplos variados:
-- "¡Hola Laura! Qué gusto verte por aquí 😊"
+Ejemplos:
+- "¡Hola Laura! Qué gusto verte 😊"
 - "¡Buenas, Laura! Encantado de saludarte 👋"
-- "¡Hey! Me alegra verte de nuevo 😄"
-- "¡Hola! Espero que estés teniendo un gran día ☀️"
-- "¡Qué alegría verte, Laura! 💚"
+- "¡Hola! Me alegra verte por aquí 😄"
+- "¡Hey! Espero que estés teniendo un gran día ☀️"
 
-No repitas exactamente el mismo saludo en distintas llamadas.
-Solo devuelve el texto del saludo, sin comillas ni etiquetas adicionales.
+Solo devuelve el texto del saludo. No incluyas nada más.
+Semilla de variación: ${randomSeed}
 `;
 
   const completion = await client.chat.completions.create({
@@ -30,14 +31,13 @@ Solo devuelve el texto del saludo, sin comillas ni etiquetas adicionales.
       { role: "system", content: prompt },
       { role: "user", content: message },
     ],
-    temperature: 1,   // 🔥 más creatividad
-    top_p: 1,         // 🔀 máxima diversidad controlada
-    presence_penalty: 0.6, // 🚫 evita repetir frases o emojis
+    temperature: 1,
+    top_p: 1,
+    presence_penalty: 0.6,
     frequency_penalty: 0.5,
     max_tokens: 60,
   });
 
   const greeting = completion.choices[0].message?.content?.trim();
-
   return greeting || "¡Hola! Encantado de saludarte 😊";
 }
