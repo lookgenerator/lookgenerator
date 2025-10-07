@@ -36,7 +36,7 @@ Mensaje del usuario: "${message}"
 `
 
     const completion = await client.chat.completions.create({
-      model: 'gpt-4.1',
+      model: process.env.MODEL || "no asignado",
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
     })
