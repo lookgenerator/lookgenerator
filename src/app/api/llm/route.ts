@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { generateGreeting } from './handlers/greetingHandler'
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -36,7 +37,7 @@ Mensaje del usuario: "${message}"
 `
 
     const completion = await client.chat.completions.create({
-      model: process.env.MODEL || "no asignado",
+      model: process.env.MODEL || 'no asignado',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
     })
@@ -49,6 +50,16 @@ Mensaje del usuario: "${message}"
     } catch {
       console.error('❌ No se pudo parsear:', raw)
       parsed = { intent: 'desconocido', entities: {} }
+    }
+
+    // 2️⃣ --- SI ES UN SALUDO, GENERAMOS RESPUESTA PERSONALIZADA ---
+    if (parsed.intent === 'saludo') {
+      const greeting = await generateGreeting(message)
+      return NextResponse.json({
+        intent: parsed.intent,
+        response: greeting,
+        entities: parsed.entities,
+      })
     }
 
     return NextResponse.json(parsed)
