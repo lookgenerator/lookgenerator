@@ -1,5 +1,5 @@
 // lib/api/llm.ts
-type Intent =
+export type Intent =
   | "identificar_usuario"
   | "ver_mas_producto"
   | "recomendaciones_producto"
@@ -10,10 +10,11 @@ type Intent =
 export interface IntentResult {
   intent: Intent;
   entities: Record<string, string | number | boolean>;
+  response?: string; // ← añadimos el campo opcional generado por el LLM
+  error?: string;    // ← opcional para capturar errores del backend
 }
 
-// lib/api/llm.ts
-export async function detectIntent(message: string) {
+export async function detectIntent(message: string): Promise<IntentResult> {
   const res = await fetch("/api/llm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -24,5 +25,7 @@ export async function detectIntent(message: string) {
     throw new Error("Error llamando a /api/llm");
   }
 
-  return res.json();
+  // El backend puede devolver también `response`
+  const data = await res.json();
+  return data as IntentResult;
 }
