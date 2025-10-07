@@ -32,7 +32,11 @@ export default function Chat() {
     setIsLoading(true)
 
     try {
-      const { intent, entities } = await detectIntent(msg)
+      const { intent, entities, response } = await detectIntent(
+        customer
+          ? `Usuario autenticado: ${customer.first_name}. Mensaje: ${msg}`
+          : msg
+      )
 
       // 🔎 DEBUG solo si NEXT_PUBLIC_DEBUG = "true"
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -42,16 +46,22 @@ export default function Chat() {
             role: 'bot',
             text: `🛠️ Debug → Intent: **${intent}** | Entities: ${JSON.stringify(
               entities
-            )}`,
+            )}| Response: ${JSON.stringify(response)}`,
           },
         ])
       }
 
       switch (intent) {
         case 'saludo':
+          const name = customer?.first_name ? ` ${customer.first_name}` : ''
           setMessages(prev => [
             ...prev,
-            { role: 'bot', text: '👋 ¡Hola! ¿En qué puedo ayudarte hoy?' },
+            {
+              role: 'bot',
+              text: response
+                ? response
+                : `👋 ¡Hola${name}! ¿En qué puedo ayudarte hoy?`,
+            },
           ])
           break
 
@@ -242,7 +252,11 @@ export default function Chat() {
         </div>
 
         {/* Input */}
-        <InputBox onSend={handleSend} disabled={isLoading} inputRef={inputRef} />
+        <InputBox
+          onSend={handleSend}
+          disabled={isLoading}
+          inputRef={inputRef}
+        />
       </div>
     </div>
   )
