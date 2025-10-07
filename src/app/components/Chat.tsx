@@ -32,7 +32,11 @@ export default function Chat() {
     setIsLoading(true)
 
     try {
-      const { intent, entities, response } = await detectIntent(msg)
+      const { intent, entities, response } = await detectIntent(
+        customer
+          ? `Usuario autenticado: ${customer.first_name}. Mensaje: ${msg}`
+          : msg
+      )
 
       // 🔎 DEBUG solo si NEXT_PUBLIC_DEBUG = "true"
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -49,11 +53,14 @@ export default function Chat() {
 
       switch (intent) {
         case 'saludo':
+          const name = customer?.first_name ? ` ${customer.first_name}` : ''
           setMessages(prev => [
             ...prev,
             {
               role: 'bot',
-              text: response || '👋 ¡Hola! ¿En qué puedo ayudarte hoy?',
+              text: response
+                ? response
+                : `👋 ¡Hola${name}! ¿En qué puedo ayudarte hoy?`,
             },
           ])
           break
