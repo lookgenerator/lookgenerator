@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { generateGreeting } from './handlers/greetingHandler'
+import { generateAuthGreeting } from './handlers/authGreetingHandler'
+
+console.log('⚡️ /api/llm ROUTE ejecutándose en servidor...')
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -55,6 +58,20 @@ Mensaje del usuario: "${message}"
     // 2️⃣ --- SI ES UN SALUDO, GENERAMOS RESPUESTA PERSONALIZADA ---
     if (parsed.intent === 'saludo') {
       const greeting = await generateGreeting(message)
+      return NextResponse.json({
+        intent: parsed.intent,
+        response: greeting,
+        entities: parsed.entities,
+      })
+    }
+    // 2️⃣ --- SI ES IDENTIFICACIÓN DE USUARIO, GENERAMOS SALLUDO PERSONALIZADO ---
+    if (
+      parsed.intent === 'identificar_usuario' &&
+      parsed.entities?.customer_id
+    ) {
+      const customerName = parsed.entities?.customer_name || ''
+      const greeting = await generateAuthGreeting(customerName)
+
       return NextResponse.json({
         intent: parsed.intent,
         response: greeting,

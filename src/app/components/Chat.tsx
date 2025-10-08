@@ -73,11 +73,25 @@ export default function Chat() {
               )
               setCustomer(customer)
 
+              // 🔹 Generar saludo LLM de bienvenida personalizada
+              const res = await fetch('/api/llm/auth-greeting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  customerName: customer.first_name,
+                }),
+              })
+              const { response: authGreeting } = await res.json()
+
+              console.log('authGreeting ', authGreeting)
+
               setMessages(prev => [
                 ...prev,
                 {
                   role: 'bot',
-                  text: `✅ Cliente encontrado: **${customer.first_name}** (ID: ${customer.customer_id}).`,
+                  text:
+                    authGreeting ||
+                    `¡Hola ${customer.first_name}! Bienvenido 👋`,
                 },
               ])
 
@@ -189,7 +203,7 @@ export default function Chat() {
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="flex flex-col w-full max-w-md h-[650px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+      <div className="flex flex-col w-full max-w-md h-[850px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
           <Image
