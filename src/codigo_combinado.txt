@@ -309,6 +309,81 @@ Semilla de variación: ${randomSeed}
 }
 
 
+=== Archivo: .\app\api\llm\product-description\route.ts ===
+
+// app/api/llm/product-description/route.ts
+
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+export async function POST(req: Request) {
+  try {
+    const { name, category } = await req.json();
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Product name is required" },
+        { status: 400 }
+      );
+    }
+
+    // 🎲 Semilla aleatoria para diversificar el output
+    const randomSeed = Math.floor(Math.random() * 10000);
+
+    const prompt = `
+Eres un redactor de marketing para la tienda online de El Corte Inglés.
+Tu tarea es escribir una descripción breve, única y atractiva para un producto.
+
+Detalles del producto:
+- Nombre: "${name}"
+- Categoría: "${category || "sin especificar"}"
+
+Instrucciones:
+- Sé original y evita repetir estructuras comunes.
+- Usa un tono natural y persuasivo, distinto cada vez.
+- En moda, resalta estilo y sensaciones. 
+- En electrónica, resalta innovación y utilidad. 
+- En hogar o decoración, resalta confort y estética.
+- Longitud máxima: 3 frases (menos de 70 palabras).
+- No repitas frases entre productos.
+- No uses comillas, emojis ni etiquetas HTML.
+- Semilla creativa: ${randomSeed}
+
+Ejemplos de tono:
+- “Diseñado para quienes buscan comodidad y elegancia en su día a día.”
+- “Tecnología avanzada que transforma la forma en que disfrutas tu tiempo libre.”
+- “Combina un estilo moderno con materiales de la más alta calidad.”
+
+Devuelve solo el texto de la descripción, sin formato adicional.
+`;
+
+    const completion = await client.chat.completions.create({
+      model: process.env.MODEL || "gpt-4o-mini",
+      messages: [{ role: "system", content: prompt }],
+      temperature: 1.1, // 🌶️ más creatividad
+      top_p: 1,
+      max_tokens: 100,
+      presence_penalty: 0.6, // penaliza repeticiones
+      frequency_penalty: 0.5,
+    });
+
+    const description = completion.choices[0].message?.content?.trim();
+
+    return NextResponse.json({ description });
+  } catch (err) {
+    console.error("❌ Error generando descripción:", err);
+    return NextResponse.json(
+      { error: "Error generando descripción" },
+      { status: 500 }
+    );
+  }
+}
+
+
 === Archivo: .\app\components\Chat.tsx ===
 
 'use client'
@@ -396,7 +471,7 @@ export default function Chat() {
               })
               const { response: authGreeting } = await res.json()
 
-              console.log('authGreeting ', authGreeting)
+              //console.log('authGreeting ', authGreeting)
 
               setMessages(prev => [
                 ...prev,
@@ -411,6 +486,16 @@ export default function Chat() {
               if (customer.products && customer.products.length > 0) {
                 const baseProduct = customer.products[0]
 
+                // 🔹 Nueva llamada: descripción generada por el LLM
+                const descRes = await fetch('/api/llm/product-description', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: baseProduct.name,
+                  }),
+                })
+                const descData = await descRes.json()
+
                 setMessages(prev => [
                   ...prev,
                   {
@@ -421,24 +506,55 @@ export default function Chat() {
                       name: baseProduct.name,
                       image_url: baseProduct.image_url,
                       description:
+                        descData.description ||
                         'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
                     },
                   },
                 ])
 
                 const data = await getSimilarProducts(baseProduct.product_id)
+                // 🔹 Tomar 5 productos aleatorios de los 10
+                const randomNeighbors = data.neighbors
+                  .sort(() => Math.random() - 0.5) // mezcla aleatoria
+                  .slice(0, 5) // solo 5
+
+                // 🔹 Enriquecer solo esos 5
+                const enrichedProducts = await Promise.all(
+                  randomNeighbors.map(async p => {
+                    try {
+                      const r = await fetch('/api/llm/product-description', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: p.name }),
+                      })
+                      const d = await r.json()
+                      return {
+                        id: p.product_id,
+                        name: p.name,
+                        image_url: p.image_url,
+                        score: p.score,
+                        description:
+                          d.description ||
+                          'Descripción no disponible en este momento.',
+                      }
+                    } catch {
+                      return {
+                        id: p.product_id,
+                        name: p.name,
+                        image_url: p.image_url,
+                        score: p.score,
+                        description:
+                          'Descripción no disponible por el momento.',
+                      }
+                    }
+                  })
+                )
                 setMessages(prev => [
                   ...prev,
                   {
                     role: 'bot',
                     text: `Productos similares a ${baseProduct.name}:`,
-                    products: data.neighbors.map(p => ({
-                      id: p.product_id,
-                      name: p.name,
-                      image_url: p.image_url,
-                      description:
-                        'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
-                    })),
+                    products: enrichedProducts,
                   },
                 ])
               }
@@ -552,6 +668,27 @@ export default function Chat() {
           >
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+
+          {/* 🧹 Botón limpiar caché, visible solo en modo debug */}
+          {process.env.NEXT_PUBLIC_DEBUG === 'true' && (
+            <button
+              onClick={() => {
+                const confirmClear = confirm(
+                  '¿Seguro que quieres borrar todas las descripciones LLM guardadas?'
+                )
+                if (confirmClear) {
+                  const keys = Object.keys(localStorage).filter(k =>
+                    k.startsWith('product_desc_')
+                  )
+                  keys.forEach(k => localStorage.removeItem(k))
+                  alert(`🧹 Caché LLM eliminada (${keys.length} items)`)
+                }
+              }}
+              className="ml-2 bg-white/20 text-xs px-2 py-1 rounded hover:bg-white/30 transition"
+            >
+              Limpiar caché LLM
+            </button>
+          )}
         </div>
 
         {/* Chat body */}
@@ -692,20 +829,20 @@ export default function Message({ role, text, product, products }: Props){
 
 === Archivo: .\app\components\ProductCard.tsx ===
 
-"use client";
-import { useState, useRef } from "react";
-import type { ChatProduct } from "../lib/types/chat";
+'use client'
+import { useState, useRef } from 'react'
+import type { ChatProduct } from '../lib/types/chat'
 
 function DescriptionWithFade({ text }: { text: string }) {
-  const [isAtEnd, setIsAtEnd] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isAtEnd, setIsAtEnd] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const handleScroll = () => {
     if (scrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      setIsAtEnd(scrollTop + clientHeight >= scrollHeight - 2);
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+      setIsAtEnd(scrollTop + clientHeight >= scrollHeight - 2)
     }
-  };
+  }
 
   return (
     <div className="relative group h-full max-h-24 overflow-hidden">
@@ -720,25 +857,81 @@ function DescriptionWithFade({ text }: { text: string }) {
       </div>
 
       {!isAtEnd && (
-        <div className="pointer-events-none absolute bottom-0 left-0 w-full h-6 
-                        bg-gradient-to-t from-white to-transparent dark:from-gray-800" />
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 w-full h-6 
+                        bg-gradient-to-t from-white to-transparent dark:from-gray-800"
+        />
       )}
     </div>
-  );
+  )
 }
 
 export default function ProductCard({ product }: { product: ChatProduct }) {
-  const [flipped, setFlipped] = useState(false);
+  const [flipped, setFlipped] = useState(false)
+  const [loadingDesc, setLoadingDesc] = useState(false)
+  const [description, setDescription] = useState(
+    product.description ??
+      'Descripción genérica del producto. Aquí aparecerá información extendida cuando se conecte el LLM.'
+  )
+
+  // 🔹 Nueva función: genera descripción con LLM
+  // dentro de ProductCard
+  async function handleViewMore() {
+    setFlipped(true)
+
+    const cacheKey = `product_desc_${product.id}`
+
+    // 🔹 1️⃣ Buscar descripción en localStorage
+    const cachedDesc = localStorage.getItem(cacheKey)
+    if (cachedDesc) {
+      setDescription(cachedDesc)
+      return
+    }
+
+    // 🔹 2️⃣ Si ya tiene una descripción que no es genérica, úsala
+    if (description && !description.includes('genérica')) return
+
+    try {
+      setLoadingDesc(true)
+
+      const res = await fetch('/api/llm/product-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: product.name,
+          category: product.category,
+        }),
+      })
+
+      const data = await res.json()
+
+      const desc =
+        data.description ||
+        'No se pudo generar una descripción personalizada en este momento.'
+
+      setDescription(desc)
+
+      // 🔹 3️⃣ Guardar en localStorage para futuras veces
+      localStorage.setItem(cacheKey, desc)
+    } catch (err) {
+      console.error('Error generando descripción:', err)
+      setDescription(
+        '❌ Ocurrió un error al generar la descripción. Inténtalo más tarde.'
+      )
+    } finally {
+      setLoadingDesc(false)
+    }
+  }
 
   return (
     <div
       className={`relative transition-all duration-500 ease-in-out ${
-        flipped ? "w-full h-[490px]" : "w-48 h-64"
+        flipped ? 'w-full h-[490px]' : 'w-48 h-64'
       }`}
     >
       <div
         className={`relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${
-          flipped ? "[transform:rotateY(180deg)]" : ""
+          flipped ? '[transform:rotateY(180deg)]' : ''
         }`}
       >
         {/* Cara frontal */}
@@ -752,12 +945,19 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
             className="w-full h-32 object-contain"
           />
           <div className="p-2 text-center">
-            <div className="font-medium text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
+            <div className="font-bold text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
               {product.name}
             </div>
+            {product.score !== undefined && (
+              <div className="mt-1">
+                <p className="text-xs text-gray-500 mb-1">
+                  Similitud: {product.score.toFixed(4)}%
+                </p>
+              </div>
+            )}
             <button
               className="mt-2 bg-green-600 text-white px-3 py-1 rounded-md text-xs hover:bg-green-700 transition-colors"
-              onClick={() => setFlipped(true)}
+              onClick={handleViewMore}
             >
               Ver más
             </button>
@@ -788,13 +988,16 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
           </div>
 
           {/* Centro → descripción con scroll */}
-          <div className="flex-1 px-4">
-            <DescriptionWithFade
-              text={
-                product.description ??
-                "Descripción genérica del producto. Aquí aparecerá información extendida cuando se conecte el LLM."
-              }
-            />
+          <div className="flex-1 px-4 flex items-center justify-center">
+            {loadingDesc ? (
+              <div className="flex gap-1 items-center text-gray-500 dark:text-gray-300">
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></span>
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
+              </div>
+            ) : (
+              <DescriptionWithFade text={description} />
+            )}
           </div>
 
           {/* Botón abajo */}
@@ -809,7 +1012,7 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 
@@ -1051,8 +1254,8 @@ export interface ChatProduct {
   name: string;
   image_url: string;
   category?: string;
-  description:
-        "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
+  description?:string;
+  score?: number;
 }
 
 export interface MessageItem {
@@ -1479,6 +1682,6 @@ export default function SystemTestPage() {
 
 ============================================================
 Resumen final:
-Total de archivos procesados: 30
-Total de líneas combinadas: 1387
+Total de archivos procesados: 31
+Total de líneas combinadas: 1587
 ============================================================
