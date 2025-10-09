@@ -125,17 +125,19 @@ export default function Chat() {
                 ])
 
                 const data = await getSimilarProducts(baseProduct.product_id)
+                // 🔹 Tomar 5 productos aleatorios de los 10
+                const randomNeighbors = data.neighbors
+                  .sort(() => Math.random() - 0.5) // mezcla aleatoria
+                  .slice(0, 5) // solo 5
 
-                // Generar descripción para el primer producto similar
+                // 🔹 Enriquecer solo esos 5
                 const enrichedProducts = await Promise.all(
-                  data.neighbors.map(async p => {
+                  randomNeighbors.map(async p => {
                     try {
                       const r = await fetch('/api/llm/product-description', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          name: p.name,
-                        }),
+                        body: JSON.stringify({ name: p.name }),
                       })
                       const d = await r.json()
                       return {
@@ -159,7 +161,6 @@ export default function Chat() {
                     }
                   })
                 )
-
                 setMessages(prev => [
                   ...prev,
                   {
