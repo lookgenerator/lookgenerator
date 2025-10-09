@@ -5,8 +5,7 @@ export interface ChatProduct {
   name: string;
   image_url: string;
   category?: string;
-  description:
-        "Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.",
+  description?:string;
 }
 
 export interface MessageItem {
