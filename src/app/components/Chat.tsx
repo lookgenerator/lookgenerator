@@ -142,6 +142,7 @@ export default function Chat() {
                         id: p.product_id,
                         name: p.name,
                         image_url: p.image_url,
+                        score: p.score,
                         description:
                           d.description ||
                           'Descripción no disponible en este momento.',
@@ -151,6 +152,7 @@ export default function Chat() {
                         id: p.product_id,
                         name: p.name,
                         image_url: p.image_url,
+                        score: p.score,
                         description:
                           'Descripción no disponible por el momento.',
                       }
