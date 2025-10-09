@@ -277,6 +277,27 @@ export default function Chat() {
           >
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+
+          {/* 🧹 Botón limpiar caché, visible solo en modo debug */}
+          {process.env.NEXT_PUBLIC_DEBUG === 'true' && (
+            <button
+              onClick={() => {
+                const confirmClear = confirm(
+                  '¿Seguro que quieres borrar todas las descripciones LLM guardadas?'
+                )
+                if (confirmClear) {
+                  const keys = Object.keys(localStorage).filter(k =>
+                    k.startsWith('product_desc_')
+                  )
+                  keys.forEach(k => localStorage.removeItem(k))
+                  alert(`🧹 Caché LLM eliminada (${keys.length} items)`)
+                }
+              }}
+              className="ml-2 bg-white/20 text-xs px-2 py-1 rounded hover:bg-white/30 transition"
+            >
+              Limpiar caché LLM
+            </button>
+          )}
         </div>
 
         {/* Chat body */}
