@@ -35,6 +35,47 @@ function DescriptionWithFade({ text }: { text: string }) {
 
 export default function ProductCard({ product }: { product: ChatProduct }) {
   const [flipped, setFlipped] = useState(false);
+  const [loadingDesc, setLoadingDesc] = useState(false);
+  const [description, setDescription] = useState(
+    product.description ??
+      "Descripción genérica del producto. Aquí aparecerá información extendida cuando se conecte el LLM."
+  );
+
+  // 🔹 Nueva función: genera descripción con LLM
+  async function handleViewMore() {
+    setFlipped(true);
+
+    // Evita pedir de nuevo si ya hay una descripción generada
+    if (!description.includes("genérica")) return;
+
+    try {
+      setLoadingDesc(true);
+      const res = await fetch("/api/llm/product-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: product.name,
+          category: product.category,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.description) {
+        setDescription(data.description);
+      } else {
+        setDescription(
+          "No se pudo generar una descripción personalizada en este momento."
+        );
+      }
+    } catch (err) {
+      console.error("Error generando descripción:", err);
+      setDescription(
+        "❌ Ocurrió un error al generar la descripción. Inténtalo más tarde."
+      );
+    } finally {
+      setLoadingDesc(false);
+    }
+  }
 
   return (
     <div
@@ -63,7 +104,7 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
             </div>
             <button
               className="mt-2 bg-green-600 text-white px-3 py-1 rounded-md text-xs hover:bg-green-700 transition-colors"
-              onClick={() => setFlipped(true)}
+              onClick={handleViewMore}
             >
               Ver más
             </button>
@@ -94,13 +135,16 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
           </div>
 
           {/* Centro → descripción con scroll */}
-          <div className="flex-1 px-4">
-            <DescriptionWithFade
-              text={
-                product.description ??
-                "Descripción genérica del producto. Aquí aparecerá información extendida cuando se conecte el LLM."
-              }
-            />
+          <div className="flex-1 px-4 flex items-center justify-center">
+            {loadingDesc ? (
+              <div className="flex gap-1 items-center text-gray-500 dark:text-gray-300">
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></span>
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
+              </div>
+            ) : (
+              <DescriptionWithFade text={description} />
+            )}
           </div>
 
           {/* Botón abajo */}

@@ -83,7 +83,7 @@ export default function Chat() {
               })
               const { response: authGreeting } = await res.json()
 
-              console.log('authGreeting ', authGreeting)
+              //console.log('authGreeting ', authGreeting)
 
               setMessages(prev => [
                 ...prev,
@@ -98,6 +98,16 @@ export default function Chat() {
               if (customer.products && customer.products.length > 0) {
                 const baseProduct = customer.products[0]
 
+                // 🔹 Nueva llamada: descripción generada por el LLM
+                const descRes = await fetch('/api/llm/product-description', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: baseProduct.name,
+                  }),
+                })
+                const descData = await descRes.json()
+
                 setMessages(prev => [
                   ...prev,
                   {
@@ -108,24 +118,52 @@ export default function Chat() {
                       name: baseProduct.name,
                       image_url: baseProduct.image_url,
                       description:
+                        descData.description ||
                         'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
                     },
                   },
                 ])
 
                 const data = await getSimilarProducts(baseProduct.product_id)
+
+                // Generar descripción para el primer producto similar
+                const enrichedProducts = await Promise.all(
+                  data.neighbors.map(async p => {
+                    try {
+                      const r = await fetch('/api/llm/product-description', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          name: p.name,
+                        }),
+                      })
+                      const d = await r.json()
+                      return {
+                        id: p.product_id,
+                        name: p.name,
+                        image_url: p.image_url,
+                        description:
+                          d.description ||
+                          'Descripción no disponible en este momento.',
+                      }
+                    } catch {
+                      return {
+                        id: p.product_id,
+                        name: p.name,
+                        image_url: p.image_url,
+                        description:
+                          'Descripción no disponible por el momento.',
+                      }
+                    }
+                  })
+                )
+
                 setMessages(prev => [
                   ...prev,
                   {
                     role: 'bot',
                     text: `Productos similares a ${baseProduct.name}:`,
-                    products: data.neighbors.map(p => ({
-                      id: p.product_id,
-                      name: p.name,
-                      image_url: p.image_url,
-                      description:
-                        'Este es un producto destacado dentro de nuestro catálogo. Próximamente aquí aparecerá una descripción generada automáticamente por el asistente inteligente.',
-                    })),
+                    products: enrichedProducts,
                   },
                 ])
               }
