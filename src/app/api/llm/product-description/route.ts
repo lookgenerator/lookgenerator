@@ -18,27 +18,44 @@ export async function POST(req: Request) {
       );
     }
 
-    const prompt = `
-Eres un asistente de marketing de la tienda online de El Corte Inglés.
-Tu tarea es redactar una descripción breve y atractiva para un producto.
+    // 🎲 Semilla aleatoria para diversificar el output
+    const randomSeed = Math.floor(Math.random() * 10000);
 
-Detalles:
-- Nombre del producto: "${name}"
+    const prompt = `
+Eres un redactor de marketing para la tienda online de El Corte Inglés.
+Tu tarea es escribir una descripción breve, única y atractiva para un producto.
+
+Detalles del producto:
+- Nombre: "${name}"
 - Categoría: "${category || "sin especificar"}"
 
-Requisitos:
-- Máximo 3 frases.
-- Tono elegante, positivo y natural.
-- Enfócate en los beneficios y el estilo del producto.
-- No uses mayúsculas innecesarias ni símbolos.
-- Devuelve solo el texto de la descripción, sin comillas ni formato extra.
+Instrucciones:
+- Sé original y evita repetir estructuras comunes.
+- Usa un tono natural y persuasivo, distinto cada vez.
+- En moda, resalta estilo y sensaciones. 
+- En electrónica, resalta innovación y utilidad. 
+- En hogar o decoración, resalta confort y estética.
+- Longitud máxima: 3 frases (menos de 70 palabras).
+- No repitas frases entre productos.
+- No uses comillas, emojis ni etiquetas HTML.
+- Semilla creativa: ${randomSeed}
+
+Ejemplos de tono:
+- “Diseñado para quienes buscan comodidad y elegancia en su día a día.”
+- “Tecnología avanzada que transforma la forma en que disfrutas tu tiempo libre.”
+- “Combina un estilo moderno con materiales de la más alta calidad.”
+
+Devuelve solo el texto de la descripción, sin formato adicional.
 `;
 
     const completion = await client.chat.completions.create({
       model: process.env.MODEL || "gpt-4o-mini",
       messages: [{ role: "system", content: prompt }],
-      temperature: 0.9,
+      temperature: 1.1, // 🌶️ más creatividad
+      top_p: 1,
       max_tokens: 100,
+      presence_penalty: 0.6, // penaliza repeticiones
+      frequency_penalty: 0.5,
     });
 
     const description = completion.choices[0].message?.content?.trim();
