@@ -12,6 +12,8 @@ import { getCustomerById } from '../lib/api/client'
 import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
 import { detectIntent } from '../lib/api/llm'
+import type { ProductFilter } from "@/app/lib/types/product";
+
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -202,13 +204,112 @@ export default function Chat() {
           break
 
         case 'buscar_por_descripcion':
-          setMessages(prev => [
-            ...prev,
-            {
-              role: 'bot',
-              text: `Buscando productos que coincidan con: "${entities.descripcion}" 🔎`,
-            },
-          ])
+          try {
+            const descripcion = entities.descripcion as string
+
+            // 🧠 mensaje inicial
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: `Buscando productos que coincidan con: "${descripcion}" 🔎`,
+              },
+            ])
+
+            // 🔍 Llamada al nuevo endpoint inteligente de búsqueda
+            const res = await fetch('/api/llm/search-recommendation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ descripcion }),
+            })
+
+            if (!res.ok) {
+              throw new Error(
+                `Error en /api/llm/search-recommendation: ${res.status}`
+              )
+            }
+
+            const { results, explanation } = await res.json()
+
+            if (!results || results.length === 0) {
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: 'bot',
+                  text: `No he encontrado productos que coincidan con "${descripcion}". 😔`,
+                },
+              ])
+              break
+            }
+
+            // ✨ Enriquecer cada producto con una descripción generada por el LLM
+            const enrichedProducts = await Promise.all(
+              results.slice(0, 5).map(async (p: ProductFilter) => {
+                try {
+                  const descRes = await fetch('/api/llm/product-description', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: p.name,
+                      category: p.category,
+                    }),
+                  })
+
+                  const descData = await descRes.json()
+
+                  return {
+                    id: p.product_id,
+                    name: p.name,
+                    image_url: p.image_url,
+                    category: p.category,
+                    description:
+                      descData.description ||
+                      'Descripción no disponible en este momento.',
+                  }
+                } catch (err) {
+                  console.error('❌ Error generando descripción:', err)
+                  return {
+                    id: p.product_id,
+                    name: p.name,
+                    image_url: p.image_url,
+                    category: p.category,
+                    description: 'Descripción no disponible.',
+                  }
+                }
+              })
+            )
+
+            // 🗣️ Mensaje explicativo del LLM
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text:
+                  explanation ||
+                  'He encontrado algunos artículos que podrían interesarte 👇',
+              },
+            ])
+
+            // 🛍️ Mostrar los productos encontrados en carrusel
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: '',
+                products: enrichedProducts,
+              },
+            ])
+          } catch (err) {
+            console.error('❌ Error procesando búsqueda por descripción:', err)
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'bot',
+                text: 'Ha ocurrido un error al procesar tu búsqueda. Inténtalo de nuevo más tarde.',
+              },
+            ])
+          }
+          
           break
 
         default:
