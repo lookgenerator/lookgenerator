@@ -117,14 +117,13 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
             <div className="font-bold text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
               {product.name}
             </div>
-{product.score !== undefined && (
-  <div className="mt-1">
-    <p className="text-xs text-gray-500 mb-1">
-      Similitud: {(product.score).toFixed(4)}%
-    </p>
-    
-  </div>
-)}
+            {product.score !== undefined && (
+              <div className="mt-1">
+                <p className="text-xs text-gray-500 mb-1">
+                  Similitud: {product.score.toFixed(4)}%
+                </p>
+              </div>
+            )}
             <button
               className="mt-2 bg-green-600 text-white px-3 py-1 rounded-md text-xs hover:bg-green-700 transition-colors"
               onClick={handleViewMore}
