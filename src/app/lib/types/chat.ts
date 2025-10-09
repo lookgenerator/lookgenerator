@@ -6,6 +6,7 @@ export interface ChatProduct {
   image_url: string;
   category?: string;
   description?:string;
+  score?: number;
 }
 
 export interface MessageItem {
