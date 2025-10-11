@@ -342,9 +342,39 @@ export default function Chat() {
     return `600833......${id.padStart(7, '0')}`
   }
 
-  return (
-    <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="flex flex-col w-full max-w-md h-[850px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+return (
+  <div
+    className="
+      relative flex items-center justify-center h-screen overflow-hidden
+      bg-gradient-to-br from-green-50 via-blue-50 to-white
+      dark:from-gray-900 dark:via-gray-800 dark:to-black
+    "
+  >
+    {/* ✨ Capa de textura translúcida */}
+    <div
+      className="
+        absolute inset-0 
+        bg-[url('https://www.transparenttextures.com/patterns/symphony.png')] 
+        dark:bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]
+        opacity-20 dark:opacity-15
+        pointer-events-none
+      "
+    />
+
+    {/* 💫 Capa de luces difusas */}
+    <div
+      className="
+        absolute inset-0 
+        bg-[radial-gradient(circle_at_top_left,_#22c55e40,_transparent_60%),radial-gradient(circle_at_bottom_right,_#2563eb40,_transparent_60%)]
+        dark:bg-[radial-gradient(circle_at_top_left,_#22c55e55,_transparent_60%),radial-gradient(circle_at_bottom_right,_#1e3a8a55,_transparent_60%)]
+        animate-pulseBackground blur-[2px]
+        pointer-events-none
+      "
+    />
+
+    {/* 💬 Contenedor principal del chat */}
+    <div className="relative z-10 flex flex-col w-full max-w-md h-[850px] bg-white/90 dark:bg-gray-800/90 rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden border border-white/20 dark:border-gray-700">
+
         {/* Header */}
         <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
           <Image
