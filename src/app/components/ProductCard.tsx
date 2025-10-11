@@ -1,6 +1,5 @@
 'use client'
 import { useState, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import type { ChatProduct } from '../lib/types/chat'
 
 function DescriptionWithFade({ text }: { text: string }) {
@@ -15,112 +14,55 @@ function DescriptionWithFade({ text }: { text: string }) {
   }
 
   return (
-    <div className="relative group h-full overflow-hidden">
+    <div className="relative group h-full max-h-24 overflow-hidden">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="text-sm md:text-base text-gray-700 dark:text-gray-200 overflow-y-auto px-1 pr-2
-                   scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-transparent
+        className="text-sm text-gray-700 h-full max-h-24 overflow-y-auto px-1 pr-2
+                   scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent
                    [scrollbar-width:none] group-hover:[scrollbar-width:thin]"
       >
         {text}
       </div>
+
       {!isAtEnd && (
-        <div className="pointer-events-none absolute bottom-0 left-0 w-full h-8 
-                        bg-gradient-to-t from-white to-transparent dark:from-gray-900" />
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 w-full h-6 
+                        bg-gradient-to-t from-white to-transparent dark:from-gray-800"
+        />
       )}
     </div>
   )
 }
 
-function ExpandedCard({
-  product,
-  description,
-  loadingDesc,
-  onBack,
-}: {
-  product: ChatProduct
-  description: string
-  loadingDesc: boolean
-  onBack: () => void
-}) {
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div
-        id="expanded-card"
-        className="relative flex flex-col w-[90%] max-w-md h-[85%] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden
-                   transform transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]
-                   animate-expandFlip"
-      >
-        {/* Cabecera con imagen y datos */}
-        <div className="flex-shrink-0 flex flex-col items-center p-5 border-b dark:border-gray-700">
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-64 object-contain mb-4 transition-all duration-500 ease-out"
-          />
-          <h3 className="font-semibold text-xl mb-1 text-gray-900 dark:text-gray-100 text-center">
-            {product.name}
-          </h3>
-          {product.category && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-              Categoría: {product.category}
-            </p>
-          )}
-          {product.score !== undefined && (
-            <p className="text-xs text-gray-500 italic">
-              Similitud: {product.score.toFixed(3)}%
-            </p>
-          )}
-        </div>
-
-        {/* Descripción ocupando casi todo el espacio restante */}
-        <div className="flex-1 p-5 overflow-y-auto text-base leading-relaxed">
-          {loadingDesc ? (
-            <div className="flex justify-center items-center h-full gap-1 text-gray-400">
-              <span className="w-3 h-3 bg-gray-400 rounded-full animate-bounce"></span>
-              <span className="w-3 h-3 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
-              <span className="w-3 h-3 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
-            </div>
-          ) : (
-            <p className="text-gray-700 dark:text-gray-200 text-justify">
-              {description}
-            </p>
-          )}
-        </div>
-
-        {/* Botón siempre visible abajo */}
-        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
-          <button
-            onClick={onBack}
-            className="w-full bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            Volver
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  )
-}
-
-
 export default function ProductCard({ product }: { product: ChatProduct }) {
-  const [expanded, setExpanded] = useState(false)
+  const [flipped, setFlipped] = useState(false)
   const [loadingDesc, setLoadingDesc] = useState(false)
   const [description, setDescription] = useState(
     product.description ??
       'Descripción genérica del producto. Aquí aparecerá información extendida cuando se conecte el LLM.'
   )
 
+  // 🔹 Nueva función: genera descripción con LLM
+  // dentro de ProductCard
   async function handleViewMore() {
-    setExpanded(true)
+    setFlipped(true)
+
     const cacheKey = `product_desc_${product.id}`
-    const cached = localStorage.getItem(cacheKey)
-    if (cached) return setDescription(cached)
+
+    // 🔹 1️⃣ Buscar descripción en localStorage
+    const cachedDesc = localStorage.getItem(cacheKey)
+    if (cachedDesc) {
+      setDescription(cachedDesc)
+      return
+    }
+
+    // 🔹 2️⃣ Si ya tiene una descripción que no es genérica, úsala
+    if (description && !description.includes('genérica')) return
 
     try {
       setLoadingDesc(true)
+
       const res = await fetch('/api/llm/product-description', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,32 +71,43 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
           category: product.category,
         }),
       })
+
       const data = await res.json()
-      const desc = data.description || 'No se pudo generar una descripción.'
+
+      const desc =
+        data.description ||
+        'No se pudo generar una descripción personalizada en este momento.'
+
       setDescription(desc)
+
+      // 🔹 3️⃣ Guardar en localStorage para futuras veces
       localStorage.setItem(cacheKey, desc)
-    } catch {
-      setDescription('❌ Error generando descripción.')
+    } catch (err) {
+      console.error('Error generando descripción:', err)
+      setDescription(
+        '❌ Ocurrió un error al generar la descripción. Inténtalo más tarde.'
+      )
     } finally {
       setLoadingDesc(false)
     }
   }
 
-  const handleBack = () => {
-    const card = document.getElementById('expanded-card')
-    if (card) {
-      card.classList.remove('animate-expandFlip')
-      card.classList.add('animate-collapseFlip')
-      setTimeout(() => setExpanded(false), 550)
-    } else {
-      setExpanded(false)
-    }
-  }
-
   return (
-    <>
-      <div className="relative w-48 h-64 transition-all duration-500 ease-in-out hover:scale-[1.02]">
-        <div className="absolute inset-0 flex flex-col items-center justify-between rounded-xl shadow-md bg-white dark:bg-gray-800 overflow-hidden">
+    <div
+      className={`relative transition-all duration-500 ease-in-out ${
+        flipped ? 'w-full h-[490px]' : 'w-48 h-64'
+      }`}
+    >
+      <div
+        className={`relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${
+          flipped ? '[transform:rotateY(180deg)]' : ''
+        }`}
+      >
+        {/* Cara frontal */}
+        <div
+          className="absolute inset-0 h-full [backface-visibility:hidden] flex flex-col items-center justify-between 
+                     rounded-lg shadow-md bg-white dark:bg-gray-800 overflow-hidden"
+        >
           <img
             src={product.image_url}
             alt={product.name}
@@ -165,8 +118,10 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
               {product.name}
             </div>
             {product.score !== undefined && (
-              <div className="mt-1 text-xs text-gray-500">
-                Similitud: {product.score.toFixed(3)}%
+              <div className="mt-1">
+                <p className="text-xs text-gray-500 mb-1">
+                  Similitud: {product.score.toFixed(4)}%
+                </p>
               </div>
             )}
             <button
@@ -177,16 +132,54 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
             </button>
           </div>
         </div>
-      </div>
 
-      {expanded && (
-        <ExpandedCard
-          product={product}
-          description={description}
-          loadingDesc={loadingDesc}
-          onBack={handleBack}
-        />
-      )}
-    </>
+        {/* Cara trasera */}
+        <div
+          className="absolute inset-0 h-full [transform:rotateY(180deg)] [backface-visibility:hidden] 
+                     bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col"
+        >
+          {/* Parte superior */}
+          <div className="flex-shrink-0 p-4">
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-full h-40 object-contain mb-3"
+            />
+            <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
+            {product.category && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Categoría: {product.category}
+              </p>
+            )}
+            {product.id && (
+              <p className="text-xs text-gray-400 mb-2">ID: {product.id}</p>
+            )}
+          </div>
+
+          {/* Centro → descripción con scroll */}
+          <div className="flex-1 px-4 flex items-center justify-center">
+            {loadingDesc ? (
+              <div className="flex gap-1 items-center text-gray-500 dark:text-gray-300">
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></span>
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
+              </div>
+            ) : (
+              <DescriptionWithFade text={description} />
+            )}
+          </div>
+
+          {/* Botón abajo */}
+          <div className="flex-shrink-0 p-4">
+            <button
+              onClick={() => setFlipped(false)}
+              className="w-full bg-gray-600 text-white px-3 py-1 rounded-md text-xs hover:bg-gray-700 transition-colors"
+            >
+              Volver
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
