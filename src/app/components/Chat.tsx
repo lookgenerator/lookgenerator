@@ -12,8 +12,7 @@ import { getCustomerById } from '../lib/api/client'
 import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
 import { detectIntent } from '../lib/api/llm'
-import type { ProductFilter } from "@/app/lib/types/product";
-
+import type { ProductFilter } from '@/app/lib/types/product'
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -309,7 +308,7 @@ export default function Chat() {
               },
             ])
           }
-          
+
           break
 
         default:
@@ -342,9 +341,53 @@ export default function Chat() {
     return `600833......${id.padStart(7, '0')}`
   }
 
+  // 👋 Pantalla de bienvenida
+  const [showIntro, setShowIntro] = useState(true)
+
+  const handleStart = () => {
+    setShowIntro(false)
+  }
+
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="flex flex-col w-full max-w-md h-[850px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+    <div
+      className="
+      relative flex items-center justify-center h-screen overflow-hidden
+      bg-gradient-to-br from-green-50 via-blue-50 to-white
+      dark:from-gray-900 dark:via-gray-800 dark:to-black
+    "
+    >
+      {/* ✨ Capa de textura translúcida */}
+      <div
+        className="
+        absolute inset-0 
+        bg-[url('https://www.transparenttextures.com/patterns/symphony.png')] 
+        dark:bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')]
+        opacity-20 dark:opacity-15
+        pointer-events-none
+      "
+      />
+
+      {/* 💫 Capa de luces difusas */}
+      <div
+        className="
+        absolute inset-0 
+        bg-[radial-gradient(circle_at_top_left,_#22c55e40,_transparent_60%),radial-gradient(circle_at_bottom_right,_#2563eb40,_transparent_60%)]
+        dark:bg-[radial-gradient(circle_at_top_left,_#22c55e55,_transparent_60%),radial-gradient(circle_at_bottom_right,_#1e3a8a55,_transparent_60%)]
+        animate-pulseBackground blur-[2px]
+        pointer-events-none
+      "
+      />
+
+      {/* 💬 Contenedor principal del chat */}
+      <div
+        className="relative z-10 flex flex-col w-full max-w-md h-[850px]
+  bg-white/40 dark:bg-gray-800/30
+  backdrop-blur-xl
+  rounded-2xl shadow-2xl overflow-hidden
+  border border-white/30 dark:border-gray-700/50
+  transition-all duration-700
+"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
           <Image
@@ -406,7 +449,16 @@ export default function Chat() {
         {/* Chat body */}
         <div
           ref={chatRef}
-          className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900"
+          className="
+    flex-1 overflow-y-auto p-4
+    bg-white/20 dark:bg-gray-900/20
+    backdrop-blur-md
+    transition-all duration-500
+  "
+          style={{
+            background:
+              'linear-gradient(to bottom right, rgba(255,255,255,0.3), rgba(200,255,200,0.1))',
+          }}
         >
           {messages.map((m, i) => (
             <Message
@@ -433,6 +485,57 @@ export default function Chat() {
           disabled={isLoading}
           inputRef={inputRef}
         />
+
+        {/* 🌟 Pantalla de bienvenida */}
+        {showIntro && (
+          <div
+            className="
+      absolute inset-0 z-50 flex flex-col items-center justify-center
+      bg-white/80 dark:bg-gray-900/90 backdrop-blur-lg text-center
+      animate-fadeIn
+    "
+          >
+            <div className="max-w-sm p-6 rounded-2xl shadow-lg bg-white/70 dark:bg-gray-800/80 border border-white/20 dark:border-gray-700">
+              <h2 className="text-2xl font-bold mb-2 text-green-700 dark:text-green-400">
+                ¡Bienvenido!
+              </h2>
+
+              <p className="text-gray-700 dark:text-gray-300 mb-3">
+                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 
+              </p>
+
+              {/* 🟢 Logo El Corte Inglés */}
+              <div className="flex justify-center mb-5">
+                <Image
+                  src="https://upload.wikimedia.org/wikipedia/commons/0/02/Logo_Corte_Ingl%C3%A9s.svg"
+                  alt="Logo El Corte Inglés"
+                  width={130}
+                  height={50}
+                  className="drop-shadow-md dark:brightness-90"
+                />
+              </div>
+
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-6 space-y-2 text-left">
+                <p className="flex items-center gap-2">
+                  <User
+                    size={16}
+                    className="text-green-600 dark:text-green-400"
+                  />
+                  <span>Identifícate escribiendo tu número de cliente.</span>
+                </p>
+                <p>🔎 Busca un producto escribiendo su descripción.</p>
+                <p>💡 Ejemplo: “Buscar zapatillas rojas”.</p>
+              </div>
+
+              <button
+                onClick={handleStart}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow transition-all duration-300"
+              >
+                Comenzar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
