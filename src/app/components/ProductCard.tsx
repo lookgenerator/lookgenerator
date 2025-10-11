@@ -18,9 +18,9 @@ function DescriptionWithFade({ text }: { text: string }) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="text-sm text-gray-700 h-full max-h-24 overflow-y-auto px-1 pr-2
-                   scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent
-                   [scrollbar-width:none] group-hover:[scrollbar-width:thin]"
+        className="text-sm text-gray-700 dark:text-gray-200 h-full max-h-24 overflow-y-auto px-1 pr-2
+                   scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-500 scrollbar-track-transparent
+                   [scrollbar-width:none] group-hover:[scrollbar-width:thin] bg-gradient-to-t from-white to-transparent dark:from-gray-900"
       >
         {text}
       </div>
