@@ -281,15 +281,15 @@ Tu tarea es generar un mensaje de bienvenida cuando un cliente se autentica.
 Debe sonar cálido, personalizado y diferente cada vez.
 Incluye el nombre del cliente si está disponible ("${customerName}").
 
-Varía el estilo, los emojis y las frases para que no se repitan.
+Varía el estilo, y las frases para que no se repitan.
 
 Ejemplos:
-- "¡Hola ${customerName}! Me alegra verte de nuevo 💚"
-- "¡Bienvenida otra vez, ${customerName}! ¿Lista para descubrir novedades? 🛍️"
-- "¡Hey ${customerName}! Qué gusto volver a verte 😊"
-- "¡Encantado de verte, ${customerName}! Te he preparado recomendaciones personalizadas 🔎"
+- "¡Hola ${customerName}! Me alegra verte de nuevo"
+- "¡Bienvenida otra vez, ${customerName}! ¿Lista para descubrir novedades?"
+- "¡Hey ${customerName}! Qué gusto volver a verte"
+- "¡Encantado de verte, ${customerName}! Te he preparado recomendaciones personalizadas"
 
-No incluyas comillas ni texto adicional. Solo devuelve el saludo.
+No incluyas comillas ni texto adicional ni iconos. Solo devuelve el saludo.
 Semilla de variación: ${randomSeed}
 `;
 
@@ -650,6 +650,62 @@ Resume en una frase por qué estos productos coinciden con "${descripcion}".
 }
 
 
+=== Archivo: .\app\api\llm\welcome-message\route.ts ===
+
+// app/api/llm/welcome-message/route.ts
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+export async function GET() {
+  try {
+    const randomSeed = Math.floor(Math.random() * 10000);
+
+    const prompt = `
+Eres el asistente virtual de El Corte Inglés.
+Debes generar un mensaje de bienvenida breve, profesional y sin emojis.
+
+Instrucciones:
+- El mensaje debe sonar natural, cercano y humano.
+- Indica de forma clara que el usuario puede:
+  1. Buscar un producto escribiendo su descripción.
+  2. Identificarse como cliente indicando su número de cliente.
+- No uses emojis ni signos decorativos.
+- Sé directo (máximo 2 frases).
+- Genera pequeñas variaciones entre ejecuciones usando la semilla ${randomSeed}.
+
+Ejemplo:
+"Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente."
+`;
+
+    const completion = await client.chat.completions.create({
+      model: process.env.MODEL || "gpt-4o-mini",
+      messages: [{ role: "system", content: prompt }],
+      temperature: 0.8,
+      max_tokens: 80,
+    });
+
+    const message =
+      completion.choices[0].message?.content?.trim() ||
+      "Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.";
+
+    return NextResponse.json({ message });
+  } catch (err) {
+    console.error("❌ Error en /api/llm/welcome-message:", err);
+    return NextResponse.json(
+      {
+        message:
+          "Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
 === Archivo: .\app\components\Chat.tsx ===
 
 'use client'
@@ -763,11 +819,14 @@ export default function Chat() {
                 })
                 const descData = await descRes.json()
 
+
+                
+
                 setMessages(prev => [
                   ...prev,
                   {
                     role: 'bot',
-                    text: `Estos son algunos de tus productos:`,
+                    text: `Como has comprado o visualizado ${baseProduct.name}, voy a buscarte recomendaciones similares. `,
                     product: {
                       id: baseProduct.product_id,
                       name: baseProduct.name,
@@ -999,24 +1058,44 @@ export default function Chat() {
   const [showIntro, setShowIntro] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
-  const handleStart = () => {
-    // 🔹 Inicia la animación fade-out
-    setFadeOut(true)
+const handleStart = async () => {
+  setFadeOut(true);
 
-    // 🔹 Espera a que termine la animación y luego oculta el cartel
-    setTimeout(() => {
-      setShowIntro(false)
+  // Espera a que se desvanezca la intro
+  setTimeout(async () => {
+    setShowIntro(false);
 
-      // 🔹 Agrega el primer mensaje del bot automáticamente
-      setMessages(prev => [
-        ...prev,
+    // 🔸 Muestra indicador de escritura
+    setIsLoading(true);
+
+    try {
+      // Llamada al LLM
+      const res = await fetch("/api/llm/welcome-message");
+      const data = await res.json();
+
+      // Simular un pequeño retardo para realismo
+      setTimeout(() => {
+        setIsLoading(false);
+        setMessages([
+          {
+            role: "bot",
+            text: data.message,
+          },
+        ]);
+      }, 1000);
+    } catch (err) {
+      console.error("❌ Error obteniendo saludo inicial:", err);
+      setIsLoading(false);
+      setMessages([
         {
-          role: 'bot',
-          text: '👋 ¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?',
+          role: "bot",
+          text: "Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.",
         },
-      ])
-    }, 700) // coincide con la duración del fadeOut en CSS
-  }
+      ]);
+    }
+  }, 700); // ⏱️ tiempo sincronizado con el fadeOut
+};
+
   return (
     <div
       className="
@@ -1342,8 +1421,10 @@ function DescriptionWithFade({ text }: { text: string }) {
         {text}
       </div>
       {!isAtEnd && (
-        <div className="pointer-events-none absolute bottom-0 left-0 w-full h-8 
-                        bg-gradient-to-t from-white to-transparent dark:from-gray-900" />
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 w-full h-8 
+                        bg-gradient-to-t from-white to-transparent dark:from-gray-900"
+        />
       )}
     </div>
   )
@@ -1370,9 +1451,24 @@ function ExpandedCard({
       >
         {/* Cabecera con imagen y datos */}
         <div className="flex-shrink-0 flex flex-col items-center p-5 border-b dark:border-gray-700">
+          {/* 🔹 Código del producto en la esquina superior derecha */}
+          <div
+            className="absolute top-3 right-4 bg-gray-100/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 text-xs px-2 py-1 rounded-md shadow-sm select-none"
+            title="Código del producto"
+          >
+            ID: {product.id}
+          </div>
           <img
-            src={product.image_url}
+            src={
+              product.image_url ||
+              'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }
             alt={product.name}
+            onError={e => {
+              const target = e.currentTarget
+              target.src =
+                'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }}
             className="w-full h-64 object-contain mb-4 transition-all duration-500 ease-out"
           />
           <h3 className="font-semibold text-xl mb-1 text-gray-900 dark:text-gray-100 text-center">
@@ -1419,7 +1515,6 @@ function ExpandedCard({
     document.body
   )
 }
-
 
 export default function ProductCard({ product }: { product: ChatProduct }) {
   const [expanded, setExpanded] = useState(false)
@@ -1472,8 +1567,16 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
       <div className="relative w-48 h-64 transition-all duration-500 ease-in-out hover:scale-[1.02]">
         <div className="absolute inset-0 flex flex-col items-center justify-between rounded-xl shadow-md bg-white dark:bg-gray-800 overflow-hidden">
           <img
-            src={product.image_url}
+            src={
+              product.image_url ||
+              'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }
             alt={product.name}
+            onError={e => {
+              const target = e.currentTarget
+              target.src =
+                'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }}
             className="w-full h-32 object-contain"
           />
           <div className="p-2 text-center">
@@ -2216,6 +2319,6 @@ export default function SystemTestPage() {
 
 ============================================================
 Resumen final:
-Total de archivos procesados: 32
-Total de líneas combinadas: 2118
+Total de archivos procesados: 33
+Total de líneas combinadas: 2218
 ============================================================
