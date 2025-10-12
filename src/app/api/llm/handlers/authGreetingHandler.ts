@@ -13,15 +13,15 @@ Tu tarea es generar un mensaje de bienvenida cuando un cliente se autentica.
 Debe sonar cálido, personalizado y diferente cada vez.
 Incluye el nombre del cliente si está disponible ("${customerName}").
 
-Varía el estilo, los emojis y las frases para que no se repitan.
+Varía el estilo, y las frases para que no se repitan.
 
 Ejemplos:
-- "¡Hola ${customerName}! Me alegra verte de nuevo 💚"
-- "¡Bienvenida otra vez, ${customerName}! ¿Lista para descubrir novedades? 🛍️"
-- "¡Hey ${customerName}! Qué gusto volver a verte 😊"
-- "¡Encantado de verte, ${customerName}! Te he preparado recomendaciones personalizadas 🔎"
+- "¡Hola ${customerName}! Me alegra verte de nuevo"
+- "¡Bienvenida otra vez, ${customerName}! ¿Lista para descubrir novedades?"
+- "¡Hey ${customerName}! Qué gusto volver a verte"
+- "¡Encantado de verte, ${customerName}! Te he preparado recomendaciones personalizadas"
 
-No incluyas comillas ni texto adicional. Solo devuelve el saludo.
+No incluyas comillas ni texto adicional ni iconos. Solo devuelve el saludo.
 Semilla de variación: ${randomSeed}
 `;
 
