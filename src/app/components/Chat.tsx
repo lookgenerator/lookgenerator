@@ -109,11 +109,14 @@ export default function Chat() {
                 })
                 const descData = await descRes.json()
 
+
+                
+
                 setMessages(prev => [
                   ...prev,
                   {
                     role: 'bot',
-                    text: `Estos son algunos de tus productos:`,
+                    text: `Como has comprado o visualizado ${baseProduct.name}, voy a buscarte recomendaciones similares. `,
                     product: {
                       id: baseProduct.product_id,
                       name: baseProduct.name,
