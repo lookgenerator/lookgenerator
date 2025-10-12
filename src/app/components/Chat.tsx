@@ -109,11 +109,14 @@ export default function Chat() {
                 })
                 const descData = await descRes.json()
 
+
+                
+
                 setMessages(prev => [
                   ...prev,
                   {
                     role: 'bot',
-                    text: `Estos son algunos de tus productos:`,
+                    text: `Como has comprado o visualizado ${baseProduct.name}, voy a buscarte recomendaciones similares. `,
                     product: {
                       id: baseProduct.product_id,
                       name: baseProduct.name,
@@ -345,24 +348,44 @@ export default function Chat() {
   const [showIntro, setShowIntro] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
-  const handleStart = () => {
-    // 🔹 Inicia la animación fade-out
-    setFadeOut(true)
+const handleStart = async () => {
+  setFadeOut(true);
 
-    // 🔹 Espera a que termine la animación y luego oculta el cartel
-    setTimeout(() => {
-      setShowIntro(false)
+  // Espera a que se desvanezca la intro
+  setTimeout(async () => {
+    setShowIntro(false);
 
-      // 🔹 Agrega el primer mensaje del bot automáticamente
-      setMessages(prev => [
-        ...prev,
+    // 🔸 Muestra indicador de escritura
+    setIsLoading(true);
+
+    try {
+      // Llamada al LLM
+      const res = await fetch("/api/llm/welcome-message");
+      const data = await res.json();
+
+      // Simular un pequeño retardo para realismo
+      setTimeout(() => {
+        setIsLoading(false);
+        setMessages([
+          {
+            role: "bot",
+            text: data.message,
+          },
+        ]);
+      }, 1000);
+    } catch (err) {
+      console.error("❌ Error obteniendo saludo inicial:", err);
+      setIsLoading(false);
+      setMessages([
         {
-          role: 'bot',
-          text: '👋 ¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?',
+          role: "bot",
+          text: "Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.",
         },
-      ])
-    }, 700) // coincide con la duración del fadeOut en CSS
-  }
+      ]);
+    }
+  }, 700); // ⏱️ tiempo sincronizado con el fadeOut
+};
+
   return (
     <div
       className="
