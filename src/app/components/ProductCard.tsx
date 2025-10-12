@@ -26,8 +26,10 @@ function DescriptionWithFade({ text }: { text: string }) {
         {text}
       </div>
       {!isAtEnd && (
-        <div className="pointer-events-none absolute bottom-0 left-0 w-full h-8 
-                        bg-gradient-to-t from-white to-transparent dark:from-gray-900" />
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 w-full h-8 
+                        bg-gradient-to-t from-white to-transparent dark:from-gray-900"
+        />
       )}
     </div>
   )
@@ -55,8 +57,16 @@ function ExpandedCard({
         {/* Cabecera con imagen y datos */}
         <div className="flex-shrink-0 flex flex-col items-center p-5 border-b dark:border-gray-700">
           <img
-            src={product.image_url}
+            src={
+              product.image_url ||
+              'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }
             alt={product.name}
+            onError={e => {
+              const target = e.currentTarget
+              target.src =
+                'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }}
             className="w-full h-64 object-contain mb-4 transition-all duration-500 ease-out"
           />
           <h3 className="font-semibold text-xl mb-1 text-gray-900 dark:text-gray-100 text-center">
@@ -103,7 +113,6 @@ function ExpandedCard({
     document.body
   )
 }
-
 
 export default function ProductCard({ product }: { product: ChatProduct }) {
   const [expanded, setExpanded] = useState(false)
@@ -156,8 +165,13 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
       <div className="relative w-48 h-64 transition-all duration-500 ease-in-out hover:scale-[1.02]">
         <div className="absolute inset-0 flex flex-col items-center justify-between rounded-xl shadow-md bg-white dark:bg-gray-800 overflow-hidden">
           <img
-            src={product.image_url}
+            src={product.image_url || "https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg"}
             alt={product.name}
+            onError={e => {
+              const target = e.currentTarget
+              target.src =
+                'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }}
             className="w-full h-32 object-contain"
           />
           <div className="p-2 text-center">
