@@ -56,6 +56,13 @@ function ExpandedCard({
       >
         {/* Cabecera con imagen y datos */}
         <div className="flex-shrink-0 flex flex-col items-center p-5 border-b dark:border-gray-700">
+          {/* 🔹 Código del producto en la esquina superior derecha */}
+          <div
+            className="absolute top-3 right-4 bg-gray-100/80 dark:bg-gray-700/60 text-gray-800 dark:text-gray-200 text-xs px-2 py-1 rounded-md shadow-sm select-none"
+            title="Código del producto"
+          >
+            ID: {product.id}
+          </div>
           <img
             src={
               product.image_url ||
@@ -165,7 +172,10 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
       <div className="relative w-48 h-64 transition-all duration-500 ease-in-out hover:scale-[1.02]">
         <div className="absolute inset-0 flex flex-col items-center justify-between rounded-xl shadow-md bg-white dark:bg-gray-800 overflow-hidden">
           <img
-            src={product.image_url || "https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg"}
+            src={
+              product.image_url ||
+              'https://img.freepik.com/vector-premium/no-hay-foto-disponible-icono-vectorial-simbolo-imagen-predeterminado-imagen-proximamente-sitio-web-o-aplicacion-movil_87543-10615.jpg'
+            }
             alt={product.name}
             onError={e => {
               const target = e.currentTarget
