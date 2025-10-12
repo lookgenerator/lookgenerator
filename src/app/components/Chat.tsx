@@ -343,11 +343,26 @@ export default function Chat() {
 
   // 👋 Pantalla de bienvenida
   const [showIntro, setShowIntro] = useState(true)
+  const [fadeOut, setFadeOut] = useState(false)
 
   const handleStart = () => {
-    setShowIntro(false)
-  }
+    // 🔹 Inicia la animación fade-out
+    setFadeOut(true)
 
+    // 🔹 Espera a que termine la animación y luego oculta el cartel
+    setTimeout(() => {
+      setShowIntro(false)
+
+      // 🔹 Agrega el primer mensaje del bot automáticamente
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'bot',
+          text: '👋 ¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?',
+        },
+      ])
+    }, 700) // coincide con la duración del fadeOut en CSS
+  }
   return (
     <div
       className="
@@ -489,11 +504,12 @@ export default function Chat() {
         {/* 🌟 Pantalla de bienvenida */}
         {showIntro && (
           <div
-            className="
+            className={`
       absolute inset-0 z-50 flex flex-col items-center justify-center
       bg-white/80 dark:bg-gray-900/90 backdrop-blur-lg text-center
-      animate-fadeIn
-    "
+      transition-opacity duration-700
+      ${fadeOut ? 'opacity-0' : 'opacity-100'}
+    `}
           >
             <div className="max-w-sm p-6 rounded-2xl shadow-lg bg-white/70 dark:bg-gray-800/80 border border-white/20 dark:border-gray-700">
               <h2 className="text-2xl font-bold mb-2 text-green-700 dark:text-green-400">
@@ -501,7 +517,7 @@ export default function Chat() {
               </h2>
 
               <p className="text-gray-700 dark:text-gray-300 mb-3">
-                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 
+                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 💬
               </p>
 
               {/* 🟢 Logo El Corte Inglés */}
@@ -521,7 +537,7 @@ export default function Chat() {
                     size={16}
                     className="text-green-600 dark:text-green-400"
                   />
-                  <span>Identifícate escribiendo tu número de cliente.</span>
+                  <span>🆔 Identifícate escribiendo tu número de cliente.</span>
                 </p>
                 <p>🔎 Busca un producto escribiendo su descripción.</p>
                 <p>💡 Ejemplo: “Buscar zapatillas rojas”.</p>
