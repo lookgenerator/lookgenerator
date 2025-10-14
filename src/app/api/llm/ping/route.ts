@@ -1,11 +1,13 @@
+// app/api/llm/ping/route.ts
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type ErrorLike = { name?: string; message?: string };
-function normalizeError(err: unknown): Required<ErrorLike> {
+type ErrLike = { name?: string; message?: string };
+function norm(err: unknown): Required<ErrLike> {
   if (err instanceof Error) return { name: err.name || "Error", message: err.message || "Unknown" };
   if (typeof err === "object" && err !== null) {
     const o = err as Record<string, unknown>;
@@ -17,8 +19,11 @@ function normalizeError(err: unknown): Required<ErrorLike> {
   return { name: "Error", message: String(err) };
 }
 
-async function readOpenAIKeyFromSSM(): Promise<string> {
-  // Import dinámico para empaquetar solo en server
+async function getOpenAIKey(): Promise<string> {
+  // 1) Si en el futuro vuelven a funcionar las env de Amplify, úsala primero
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
+
+  // 2) Fallback SSM
   const { SSMClient, GetParameterCommand } = await import("@aws-sdk/client-ssm");
   const client = new SSMClient({
     region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "eu-west-1",
@@ -30,21 +35,18 @@ async function readOpenAIKeyFromSSM(): Promise<string> {
 
 export async function GET() {
   try {
-    const key = await readOpenAIKeyFromSSM();
-    return NextResponse.json({ ok: true, source: "ssm", has_OPENAI: key.length > 0 });
+    const apiKey = await getOpenAIKey();
+    if (!apiKey) {
+      return NextResponse.json({ ok: false, error: "OPENAI_API_KEY not found (env/SSM)" }, { status: 500 });
+    }
+
+    const client = new OpenAI({ apiKey });
+    const models = await client.models.list();
+    return NextResponse.json({ ok: true, modelCount: models.data?.length ?? 0 });
   } catch (err: unknown) {
-    const e = normalizeError(err);
-    return NextResponse.json(
-      {
-        ok: false,
-        source: "ssm",
-        error: e.name,
-        message: e.message,
-        hint:
-          "Si ves Cannot find module → falta @aws-sdk/client-ssm en dependencies. " +
-          "Si ves AccessDeniedException → falta permiso ssm:GetParameter/kms:Decrypt en el role SSR.",
-      },
-      { status: 500 }
-    );
+    const e = norm(err);
+    // Útil para CloudWatch:
+    console.error("[/api/llm/ping] error:", e.name, e.message);
+    return NextResponse.json({ ok: false, error: `${e.name}: ${e.message}` }, { status: 500 });
   }
 }
