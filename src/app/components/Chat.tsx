@@ -6,8 +6,8 @@ import InputBox from './InputBox'
 import TypingIndicator from './TypingIndicator'
 import useDarkMode from '../hooks/useDarkMode'
 import { Moon, Sun } from 'lucide-react'
-import { getProductById, getSimilarProducts } from '../lib/api/products'
-import type { ChatProduct, MessageItem } from '../lib/types/chat'
+import { getSimilarProducts } from '../lib/api/products'
+import type { MessageItem } from '../lib/types/chat'
 import { getCustomerById } from '../lib/api/client'
 import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
@@ -417,15 +417,17 @@ const handleStart = async () => {
       />
 
       {/* 💬 Contenedor principal del chat */}
-      <div
-        className="relative z-10 flex flex-col w-full max-w-md h-[850px]
+<div
+  className="
+  relative z-10 flex flex-col w-full max-w-md h-[90vh] sm:h-[850px]
   bg-white/40 dark:bg-gray-800/30
   backdrop-blur-xl
   rounded-2xl shadow-2xl overflow-hidden
   border border-white/30 dark:border-gray-700/50
   transition-all duration-700
+  mx-2 sm:mx-0
 "
-      >
+>
         {/* Header */}
         <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
           <Image
