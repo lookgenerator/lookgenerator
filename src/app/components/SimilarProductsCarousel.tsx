@@ -22,7 +22,12 @@ export default function SimilarProductsCarousel({ products }: { products: ChatPr
         effect="coverflow"
         grabCursor={true}
         centeredSlides={true}
-        slidesPerView={1.5}
+        breakpoints={{
+  320: { slidesPerView: 1 },
+  640: { slidesPerView: 1.3 },
+  768: { slidesPerView: 1.6 },
+  1024: { slidesPerView: 2 },
+}}
         navigation
         pagination={{ clickable: true }}
         coverflowEffect={{
