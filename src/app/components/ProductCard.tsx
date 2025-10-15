@@ -169,7 +169,7 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
 
   return (
     <>
-      <div className="relative w-48 h-64 transition-all duration-500 ease-in-out hover:scale-[1.02]">
+      <div className="relative w-36 h-56 sm:w-48 sm:h-64 transition-all duration-500 ease-in-out hover:scale-[1.02]">
         <div className="absolute inset-0 flex flex-col items-center justify-between rounded-xl shadow-md bg-white dark:bg-gray-800 overflow-hidden">
           <img
             src={
@@ -185,7 +185,8 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
             className="w-full h-32 object-contain"
           />
           <div className="p-2 text-center">
-            <div className="font-bold text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
+            <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
+
               {product.name}
             </div>
             {product.score !== undefined && (

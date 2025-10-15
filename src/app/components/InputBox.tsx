@@ -18,11 +18,11 @@ export default function InputBox({ onSend, disabled=false, inputRef }: Props) {
         onSend(text);
         setText("");
       }}
-      className="flex gap-2 p-3 border-t bg-white dark:bg-gray-800 dark:border-gray-700 sticky bottom-0"
+      className="flex gap-2 p-3 border-t bg-white dark:bg-gray-800 dark:border-gray-700 sticky bottom-0 w-full"
     >
       <input
         ref={inputRef}
-        className="flex-1 p-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+        className="flex-1 p-2 text-sm sm:text-base border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Escribe un mensaje..."
