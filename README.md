@@ -134,7 +134,7 @@ El `OPENAI_API_KEY` y las credenciales de la API se gestionan desde el apartado 
 
 ## Inteligencia Artificial integrada
 
-El asistente usa **modelos de OpenAI (GPT-4o-mini)** para:
+El asistente usa **modelos de OpenAI (GPT-4.1)** para:
 
 - Clasificación de intenciones (`/api/llm`)
 - Saludos personalizados (`/api/llm/auth-greeting`, `/api/llm/welcome-message`)
