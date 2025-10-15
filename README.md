@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/02/Logo_Corte_Ingl%C3%A9s.svg" width="180" alt="El Corte Inglés">
+</p>
+
+
 # Asistente Virtual de El Corte Inglés (Web + API)
 
 Este repositorio contiene el **frontend web del Asistente Virtual de El Corte Inglés**, desarrollado con **Next.js 14**, **React**, **TypeScript** y **TailwindCSS**.  
@@ -6,7 +11,9 @@ El proyecto se comunica con una **API desplegada en AWS Lambda (contenedor)** qu
 El despliegue de este frontend se realiza mediante **AWS Amplify**.
 
 ---
-
+<p align="center">
+  <img src="./public/screenshot.jpg" alt="Vista previa del Chatbot" width="300">
+</p>
 ## Arquitectura del proyecto
 
 **Frontend (este repositorio)**  
