@@ -542,7 +542,7 @@ const handleStart = async () => {
               </h2>
 
               <p className="text-gray-700 dark:text-gray-300 mb-3">
-                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 💬
+                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 
               </p>
 
               {/* 🟢 Logo El Corte Inglés */}
