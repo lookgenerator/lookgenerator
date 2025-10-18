@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Archivos temporales de VSCode / Anaconda
+src/.virtual_documents/
+src/anaconda_projects/
