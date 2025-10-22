@@ -7,7 +7,7 @@ import TypingIndicator from './TypingIndicator'
 import useDarkMode from '../hooks/useDarkMode'
 import { Moon, Sun } from 'lucide-react'
 import { getSimilarProducts } from '../lib/api/products'
-import type { MessageItem } from '../lib/types/chat'
+import type { MessageItem, ChatProduct } from '../lib/types/chat'
 import { getCustomerById } from '../lib/api/client'
 import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
@@ -108,9 +108,6 @@ export default function Chat() {
                   }),
                 })
                 const descData = await descRes.json()
-
-
-                
 
                 setMessages(prev => [
                   ...prev,
@@ -348,43 +345,104 @@ export default function Chat() {
   const [showIntro, setShowIntro] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
-const handleStart = async () => {
-  setFadeOut(true);
+  const handleStart = async () => {
+    setFadeOut(true)
 
-  // Espera a que se desvanezca la intro
-  setTimeout(async () => {
-    setShowIntro(false);
+    // Espera a que se desvanezca la intro
+    setTimeout(async () => {
+      setShowIntro(false)
 
-    // 🔸 Muestra indicador de escritura
-    setIsLoading(true);
+      // 🔸 Muestra indicador de escritura
+      setIsLoading(true)
 
-    try {
-      // Llamada al LLM
-      const res = await fetch("/api/llm/welcome-message");
-      const data = await res.json();
+      try {
+        // Llamada al LLM
+        const res = await fetch('/api/llm/welcome-message')
+        const data = await res.json()
 
-      // Simular un pequeño retardo para realismo
-      setTimeout(() => {
-        setIsLoading(false);
+        // Simular un pequeño retardo para realismo
+        setTimeout(() => {
+          setIsLoading(false)
+          setMessages([
+            {
+              role: 'bot',
+              text: data.message,
+            },
+          ])
+        }, 1000)
+      } catch (err) {
+        console.error('❌ Error obteniendo saludo inicial:', err)
+        setIsLoading(false)
         setMessages([
           {
-            role: "bot",
-            text: data.message,
+            role: 'bot',
+            text: 'Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.',
           },
-        ]);
-      }, 1000);
-    } catch (err) {
-      console.error("❌ Error obteniendo saludo inicial:", err);
-      setIsLoading(false);
-      setMessages([
-        {
-          role: "bot",
-          text: "Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.",
-        },
-      ]);
-    }
-  }, 700); // ⏱️ tiempo sincronizado con el fadeOut
-};
+        ])
+      }
+    }, 700) // ⏱️ tiempo sincronizado con el fadeOut
+  }
+
+  const handleFindSimilar = async (product: ChatProduct) => {
+    // 1️⃣ Mensaje inicial
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: `Buscando productos similares a ${product.name} 🔎`,
+        product,
+      },
+    ])
+
+    setIsLoading(true)
+
+    // 3️⃣ Obtener productos similares desde la API
+    const data = await getSimilarProducts(product.id)
+
+    // 4️⃣ Enriquecer descripciones
+    const enriched = await Promise.all(
+      data.neighbors.map(async p => {
+        try {
+          const r = await fetch('/api/llm/product-description', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: p.name,
+            }),
+          })
+          const d = await r.json()
+          return {
+            id: p.product_id,
+            name: p.name,
+            image_url: p.image_url,
+            score: p.score,
+            description:
+              d.description || 'Descripción no disponible por el momento.',
+          }
+        } catch {
+          return {
+            id: p.product_id,
+            name: p.name,
+            image_url: p.image_url,
+            score: p.score,
+            description: 'Descripción no disponible.',
+          }
+        }
+      })
+    )
+
+    setIsLoading(false)
+
+    // 5️⃣ Mostrar lista de similares
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: `Productos similares a ${product.name}:`,
+        products: enriched,
+      },
+    ])
+  }
 
   return (
     <div
@@ -417,8 +475,8 @@ const handleStart = async () => {
       />
 
       {/* 💬 Contenedor principal del chat */}
-<div
-  className="
+      <div
+        className="
   relative z-10 flex flex-col w-full max-w-md h-[90vh] sm:h-[850px]
   bg-white/40 dark:bg-gray-800/30
   backdrop-blur-xl
@@ -427,7 +485,7 @@ const handleStart = async () => {
   transition-all duration-700
   mx-2 sm:mx-0
 "
->
+      >
         {/* Header */}
         <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
           <Image
@@ -507,6 +565,7 @@ const handleStart = async () => {
               text={m.text}
               product={m.product}
               products={m.products}
+              onFindSimilar={handleFindSimilar}
             />
           ))}
 
@@ -542,7 +601,7 @@ const handleStart = async () => {
               </h2>
 
               <p className="text-gray-700 dark:text-gray-300 mb-3">
-                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 
+                Soy el <strong>Asistente Virtual de El Corte Inglés</strong>
               </p>
 
               {/* 🟢 Logo El Corte Inglés */}
