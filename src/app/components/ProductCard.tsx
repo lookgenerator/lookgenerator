@@ -107,14 +107,21 @@ function ExpandedCard({
         </div>
 
         {/* Botón siempre visible abajo */}
-        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
-          <button
-            onClick={onBack}
-            className="w-full bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            Volver
-          </button>
-        </div>
+<div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex gap-3">
+  <button
+    onClick={onBack}
+    className="flex-1 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
+  >
+    Volver
+  </button>
+
+  <button
+    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+    onClick={() => console.log(`🟢 Buscar similares para ${product.name}`)}
+  >
+    Buscar similares
+  </button>
+</div>
       </div>
     </div>,
     document.body
