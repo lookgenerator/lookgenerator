@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import ProductCard from "./ProductCard";
 import type { ChatProduct } from "../lib/types/chat";
 
-export default function SimilarProductsCarousel({ products }: { products: ChatProduct[] }) {
+export default function SimilarProductsCarousel({ products, onFindSimilar }: { products: ChatProduct[];onFindSimilar?: (product: ChatProduct) => void; }) {
   const autoplay = Autoplay({ delay: 3500, stopOnInteraction: false });
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { align: "center", loop: true, containScroll: "trimSnaps" },
@@ -53,7 +53,7 @@ export default function SimilarProductsCarousel({ products }: { products: ChatPr
                 animate={{ rotateY: 0, opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: i * 0.1 }}
               >
-                <ProductCard product={p} isSimilar={true} />
+                <ProductCard product={p} isSimilar={true}  onFindSimilar={onFindSimilar}/>
               </motion.div>
             </motion.div>
           ))}

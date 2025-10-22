@@ -40,13 +40,15 @@ function ExpandedCard({
   description,
   loadingDesc,
   onBack,
-  isSimilar
+  isSimilar,
+  onFindSimilar
 }: {
   product: ChatProduct
   description: string
   loadingDesc: boolean
   onBack: () => void
   isSimilar: boolean
+  onFindSimilar?: (product: ChatProduct) => void
 }) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -109,31 +111,41 @@ function ExpandedCard({
         </div>
 
         {/* Botón siempre visible abajo */}
-<div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex gap-3">
-  <button
-    onClick={onBack}
-    className="flex-1 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
-  >
-    Volver
-  </button>
+        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex gap-3">
+          <button
+            onClick={onBack}
+            className="flex-1 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Volver
+          </button>
 
-  {isSimilar && (
-    <button
-      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
-      onClick={() => console.log(`🟢 Buscar similares para ${product.name}`)}
-    >
-      Buscar similares
-    </button>
-  )}
-</div>
-
+          {isSimilar && (
+            <button
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+              onClick={() =>{
+                onBack()
+                onFindSimilar?.(product)
+              }}
+            >
+              Buscar similares
+            </button>
+          )}
+        </div>
       </div>
     </div>,
     document.body
   )
 }
 
-export default function ProductCard({ product, isSimilar=false }: { product: ChatProduct; isSimilar?: boolean  }) {
+export default function ProductCard({
+  product,
+  isSimilar = false,
+  onFindSimilar
+}: {
+  product: ChatProduct
+  isSimilar?: boolean
+  onFindSimilar?: (product: ChatProduct) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const [loadingDesc, setLoadingDesc] = useState(false)
   const [description, setDescription] = useState(
@@ -198,7 +210,6 @@ export default function ProductCard({ product, isSimilar=false }: { product: Cha
           />
           <div className="p-2 text-center">
             <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
-
               {product.name}
             </div>
             {product.score !== undefined && (
@@ -223,6 +234,7 @@ export default function ProductCard({ product, isSimilar=false }: { product: Cha
           loadingDesc={loadingDesc}
           onBack={handleBack}
           isSimilar={isSimilar}
+          onFindSimilar={onFindSimilar}
         />
       )}
     </>
