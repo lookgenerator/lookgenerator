@@ -1,7 +1,6 @@
 import { User, Bot } from 'lucide-react'
 import type { ChatProduct } from '../lib/types/chat'
 import ProductCard from './ProductCard'
-import SimilarProductsGrid from "./SimilarProductsGrid";
 import SimilarProductsCarousel from "./SimilarProductsCarousel";
 
 interface Props {
@@ -9,9 +8,10 @@ interface Props {
   text: string;
   product?: ChatProduct;
   products?: ChatProduct[]; // 👈 importante
+  onFindSimilar?: (product: ChatProduct) => void;
 }
 
-export default function Message({ role, text, product, products }: Props){
+export default function Message({ role, text, product, products,onFindSimilar }: Props){
    console.log("Message props:", { text, product, products });
   const isUser = role === 'user'
 
@@ -36,11 +36,11 @@ export default function Message({ role, text, product, products }: Props){
       >
         <p className="mb-2">{text}</p>
 
-        {product && <ProductCard product={product} />}
+        {product && <ProductCard product={product} onFindSimilar={onFindSimilar} />}
 
         {/* múltiples productos */}
         {/* Grid de varios productos */}
-        {products && <SimilarProductsCarousel products={products} />}
+        {products && <SimilarProductsCarousel products={products} onFindSimilar={onFindSimilar} />}
       </div>
 
       {isUser && (
