@@ -53,7 +53,7 @@ export default function SimilarProductsCarousel({ products }: { products: ChatPr
                 animate={{ rotateY: 0, opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: i * 0.1 }}
               >
-                <ProductCard product={p} />
+                <ProductCard product={p} isSimilar={true} />
               </motion.div>
             </motion.div>
           ))}
