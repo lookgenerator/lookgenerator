@@ -40,11 +40,13 @@ function ExpandedCard({
   description,
   loadingDesc,
   onBack,
+  isSimilar
 }: {
   product: ChatProduct
   description: string
   loadingDesc: boolean
   onBack: () => void
+  isSimilar: boolean
 }) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -115,20 +117,23 @@ function ExpandedCard({
     Volver
   </button>
 
-  <button
-    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
-    onClick={() => console.log(`🟢 Buscar similares para ${product.name}`)}
-  >
-    Buscar similares
-  </button>
+  {isSimilar && (
+    <button
+      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+      onClick={() => console.log(`🟢 Buscar similares para ${product.name}`)}
+    >
+      Buscar similares
+    </button>
+  )}
 </div>
+
       </div>
     </div>,
     document.body
   )
 }
 
-export default function ProductCard({ product }: { product: ChatProduct }) {
+export default function ProductCard({ product, isSimilar=false }: { product: ChatProduct; isSimilar?: boolean  }) {
   const [expanded, setExpanded] = useState(false)
   const [loadingDesc, setLoadingDesc] = useState(false)
   const [description, setDescription] = useState(
@@ -217,6 +222,7 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
           description={description}
           loadingDesc={loadingDesc}
           onBack={handleBack}
+          isSimilar={isSimilar}
         />
       )}
     </>
