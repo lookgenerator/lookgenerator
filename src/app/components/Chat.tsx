@@ -444,6 +444,72 @@ export default function Chat() {
     ])
   }
 
+
+const handleGenerateLook = async (product: ChatProduct) => {
+  // 1️⃣ Mensaje inicial: aviso y ficha del producto
+  setMessages(prev => [
+    ...prev,
+    {
+      role: 'bot',
+      text: `✨ Generando look sugerido para el producto "${product.name}"...`,
+      product,
+    },
+  ]);
+
+  setIsLoading(true);
+
+  try {
+    // 2️⃣ Llamada al nuevo endpoint
+    const res = await fetch('/api/llm/generate-look', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productName: product.name,
+        category: product.category,
+      }),
+    });
+
+    if (!res.ok) throw new Error('Error al generar el look');
+
+    //const data = await res.json();
+
+    type LookResponse = {
+  estilo: string;
+  descripcion_general: string;
+  articulos?: { tipo: string; nombre_sugerido: string }[];
+};
+
+const data: LookResponse = await res.json();
+
+    // 3️⃣ Mensaje final con el resultado del look
+    const textResult = `
+🧥 **Estilo sugerido:** ${data.estilo || 'No especificado'}
+
+🪄 **Descripción:** ${data.descripcion_general || 'Sin descripción.'}
+
+👗 **Artículos complementarios:**
+${data.articulos?.map((a, i) => ` ${i + 1}. ${a.tipo}: ${a.nombre_sugerido}`).join('\n') || 'No disponibles'}
+`;
+
+    setMessages(prev => [
+      ...prev,
+      { role: 'bot', text: textResult },
+    ]);
+  } catch (err) {
+    console.error('❌ Error generando look:', err);
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: '❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.',
+      },
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
   return (
     <div
       className="
@@ -566,6 +632,7 @@ export default function Chat() {
               product={m.product}
               products={m.products}
               onFindSimilar={handleFindSimilar}
+              onGenerateLook={handleGenerateLook}
             />
           ))}
 

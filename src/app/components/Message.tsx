@@ -9,9 +9,10 @@ interface Props {
   product?: ChatProduct;
   products?: ChatProduct[]; // 👈 importante
   onFindSimilar?: (product: ChatProduct) => void;
+  onGenerateLook?: (product: ChatProduct) => void;
 }
 
-export default function Message({ role, text, product, products,onFindSimilar }: Props){
+export default function Message({ role, text, product, products,onFindSimilar, onGenerateLook }: Props){
    console.log("Message props:", { text, product, products });
   const isUser = role === 'user'
 
@@ -36,11 +37,11 @@ export default function Message({ role, text, product, products,onFindSimilar }:
       >
         <p className="mb-2">{text}</p>
 
-        {product && <ProductCard product={product} onFindSimilar={onFindSimilar} />}
+        {product && <ProductCard product={product} onFindSimilar={onFindSimilar} onGenerateLook={onGenerateLook}/>}
 
         {/* múltiples productos */}
         {/* Grid de varios productos */}
-        {products && <SimilarProductsCarousel products={products} onFindSimilar={onFindSimilar} />}
+        {products && <SimilarProductsCarousel products={products} onFindSimilar={onFindSimilar} onGenerateLook={onGenerateLook}/>}
       </div>
 
       {isUser && (

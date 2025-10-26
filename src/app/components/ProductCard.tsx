@@ -42,6 +42,7 @@ function ExpandedCard({
   onBack,
   isSimilar,
   onFindSimilar,
+  onGenerateLook
 }: {
   product: ChatProduct
   description: string
@@ -49,6 +50,7 @@ function ExpandedCard({
   onBack: () => void
   isSimilar: boolean
   onFindSimilar?: (product: ChatProduct) => void
+  onGenerateLook?: (product: ChatProduct) => void
 }) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -121,8 +123,8 @@ function ExpandedCard({
           <button
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
             onClick={() => {
-              alert(`✨ Generando look basado en ${product.name}...`)
-              // Aquí después llamaremos al endpoint /api/llm/generate-look
+              onBack()
+              onGenerateLook?.(product)
             }}
           >
             Generar look
@@ -149,10 +151,12 @@ export default function ProductCard({
   product,
   isSimilar = false,
   onFindSimilar,
+  onGenerateLook
 }: {
   product: ChatProduct
   isSimilar?: boolean
   onFindSimilar?: (product: ChatProduct) => void
+  onGenerateLook?: (product: ChatProduct) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [loadingDesc, setLoadingDesc] = useState(false)
@@ -243,6 +247,7 @@ export default function ProductCard({
           onBack={handleBack}
           isSimilar={isSimilar}
           onFindSimilar={onFindSimilar}
+          onGenerateLook={onGenerateLook}
         />
       )}
     </>
