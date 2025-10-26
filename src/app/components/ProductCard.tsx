@@ -41,7 +41,7 @@ function ExpandedCard({
   loadingDesc,
   onBack,
   isSimilar,
-  onFindSimilar
+  onFindSimilar,
 }: {
   product: ChatProduct
   description: string
@@ -118,11 +118,19 @@ function ExpandedCard({
           >
             Volver
           </button>
-
+          <button
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+            onClick={() => {
+              alert(`✨ Generando look basado en ${product.name}...`)
+              // Aquí después llamaremos al endpoint /api/llm/generate-look
+            }}
+          >
+            Generar look
+          </button>
           {isSimilar && (
             <button
               className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
-              onClick={() =>{
+              onClick={() => {
                 onBack()
                 onFindSimilar?.(product)
               }}
@@ -140,7 +148,7 @@ function ExpandedCard({
 export default function ProductCard({
   product,
   isSimilar = false,
-  onFindSimilar
+  onFindSimilar,
 }: {
   product: ChatProduct
   isSimilar?: boolean
