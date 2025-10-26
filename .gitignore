@@ -43,5 +43,6 @@ next-env.d.ts
 # Archivos temporales de VSCode / Anaconda
 src/.virtual_documents/
 src/anaconda_projects/
+src/.ipynb_checkpoints/
 
 codigo_combinado.*
