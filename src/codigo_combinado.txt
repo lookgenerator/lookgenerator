@@ -102,6 +102,8 @@ html, body {
   overflow-x: hidden;
 }
 
+.preserve-3d { transform-style: preserve-3d; }
+
 === Archivo: .\app\layout.tsx ===
 
 import type { Metadata } from "next";
@@ -319,6 +321,78 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("❌ Error en /api/llm/auth-greeting:", err);
     return NextResponse.json({ response: null }, { status: 500 });
+  }
+}
+
+
+=== Archivo: .\app\api\llm\generate-look\route.ts ===
+
+// app/api/llm/generate-look/route.ts
+
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+export async function POST(req: Request) {
+  try {
+    const { productName, category } = await req.json();
+
+    if (!productName) {
+      return NextResponse.json(
+        { error: "El nombre del producto es obligatorio" },
+        { status: 400 }
+      );
+    }
+
+    const randomSeed = Math.floor(Math.random() * 10000);
+
+    const prompt = `
+Eres un estilista de moda que trabaja para El Corte Inglés.
+Tu tarea es sugerir un **look completo** a partir de una prenda o producto base.
+
+Detalles del producto base:
+- Nombre: "${productName}"
+- Categoría: "${category || "sin especificar"}"
+
+Instrucciones:
+1. Propón entre **2 y 4 artículos complementarios** (ropa, calzado o accesorios) que combinen con el producto base.
+2. Indica el estilo general del look (por ejemplo: casual, elegante, deportivo, etc.).
+3. Devuelve la respuesta en formato **JSON** con el siguiente esquema:
+{
+  "estilo": "...",
+  "descripcion_general": "...",
+  "articulos": [
+    {"tipo": "...", "nombre_sugerido": "..."},
+    ...
+  ]
+}
+4. No incluyas texto adicional fuera del JSON.
+5. Genera variaciones ligeras según la semilla aleatoria: ${randomSeed}.
+    `;
+
+    const completion = await client.chat.completions.create({
+      model: process.env.MODEL || "gpt-4o-mini",
+      messages: [{ role: "system", content: prompt }],
+      temperature: 1,
+      max_tokens: 300,
+    });
+
+    const content = completion.choices[0].message?.content?.trim() || "{}";
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      parsed = { estilo: "Desconocido", descripcion_general: content, articulos: [] };
+    }
+
+    return NextResponse.json(parsed);
+  } catch (err) {
+    console.error("❌ Error en /api/llm/generate-look:", err);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
@@ -832,7 +906,7 @@ import TypingIndicator from './TypingIndicator'
 import useDarkMode from '../hooks/useDarkMode'
 import { Moon, Sun } from 'lucide-react'
 import { getSimilarProducts } from '../lib/api/products'
-import type { MessageItem } from '../lib/types/chat'
+import type { MessageItem, ChatProduct } from '../lib/types/chat'
 import { getCustomerById } from '../lib/api/client'
 import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
@@ -933,9 +1007,6 @@ export default function Chat() {
                   }),
                 })
                 const descData = await descRes.json()
-
-
-                
 
                 setMessages(prev => [
                   ...prev,
@@ -1173,43 +1244,175 @@ export default function Chat() {
   const [showIntro, setShowIntro] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
-const handleStart = async () => {
-  setFadeOut(true);
+  const handleStart = async () => {
+    setFadeOut(true)
 
-  // Espera a que se desvanezca la intro
-  setTimeout(async () => {
-    setShowIntro(false);
+    // Espera a que se desvanezca la intro
+    setTimeout(async () => {
+      setShowIntro(false)
 
-    // 🔸 Muestra indicador de escritura
-    setIsLoading(true);
+      // 🔸 Muestra indicador de escritura
+      setIsLoading(true)
 
-    try {
-      // Llamada al LLM
-      const res = await fetch("/api/llm/welcome-message");
-      const data = await res.json();
+      try {
+        // Llamada al LLM
+        const res = await fetch('/api/llm/welcome-message')
+        const data = await res.json()
 
-      // Simular un pequeño retardo para realismo
-      setTimeout(() => {
-        setIsLoading(false);
+        // Simular un pequeño retardo para realismo
+        setTimeout(() => {
+          setIsLoading(false)
+          setMessages([
+            {
+              role: 'bot',
+              text: data.message,
+            },
+          ])
+        }, 1000)
+      } catch (err) {
+        console.error('❌ Error obteniendo saludo inicial:', err)
+        setIsLoading(false)
         setMessages([
           {
-            role: "bot",
-            text: data.message,
+            role: 'bot',
+            text: 'Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.',
           },
-        ]);
-      }, 1000);
+        ])
+      }
+    }, 700) // ⏱️ tiempo sincronizado con el fadeOut
+  }
+
+  const handleFindSimilar = async (product: ChatProduct) => {
+    // 1️⃣ Mensaje inicial
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: `Buscando productos similares a ${product.name} 🔎`,
+        product,
+      },
+    ])
+
+    setIsLoading(true)
+
+    // 3️⃣ Obtener productos similares desde la API
+    const data = await getSimilarProducts(product.id)
+
+    // 4️⃣ Enriquecer descripciones
+    const enriched = await Promise.all(
+      data.neighbors.map(async p => {
+        try {
+          const r = await fetch('/api/llm/product-description', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: p.name,
+            }),
+          })
+          const d = await r.json()
+          return {
+            id: p.product_id,
+            name: p.name,
+            image_url: p.image_url,
+            score: p.score,
+            description:
+              d.description || 'Descripción no disponible por el momento.',
+          }
+        } catch {
+          return {
+            id: p.product_id,
+            name: p.name,
+            image_url: p.image_url,
+            score: p.score,
+            description: 'Descripción no disponible.',
+          }
+        }
+      })
+    )
+
+    setIsLoading(false)
+
+    // 5️⃣ Mostrar lista de similares
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: `Productos similares a ${product.name}:`,
+        products: enriched,
+      },
+    ])
+  }
+
+  const handleGenerateLook = async (product: ChatProduct) => {
+    // 1️⃣ Mensaje inicial: aviso y ficha del producto
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: `✨ Generando look sugerido para el producto "${product.name}"...`,
+        product,
+      },
+    ])
+
+    setIsLoading(true)
+
+    try {
+      // 2️⃣ Llamada al nuevo endpoint
+      const res = await fetch('/api/llm/generate-look', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName: product.name,
+          category: product.category,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Error al generar el look')
+
+      //const data = await res.json();
+
+      type LookResponse = {
+        estilo: string
+        descripcion_general: string
+        articulos?: { tipo: string; nombre_sugerido: string }[]
+      }
+
+      const data: LookResponse = await res.json()
+
+      // 3️⃣ Mensaje final con el resultado del look
+      const textResult = `
+🧥 **Estilo sugerido:**  
+${data.estilo || 'No especificado'} 
+
+✨ **Descripción:**  
+${data.descripcion_general || 'Sin descripción.'}
+
+👗 **Artículos complementarios:**  
+${
+  data.articulos
+    ?.map(
+      (a, i) =>
+        `   ${i + 1}. **${a.tipo.charAt(0).toUpperCase() + a.tipo.slice(1)}**  
+      ${a.nombre_sugerido}`
+    )
+    .join('\n\n') || 'No disponibles'
+}
+`
+
+      setMessages(prev => [...prev, { role: 'bot', text: textResult }])
     } catch (err) {
-      console.error("❌ Error obteniendo saludo inicial:", err);
-      setIsLoading(false);
-      setMessages([
+      console.error('❌ Error generando look:', err)
+      setMessages(prev => [
+        ...prev,
         {
-          role: "bot",
-          text: "Hola, soy el asistente virtual de El Corte Inglés. Puedes buscar un producto escribiendo su descripción o identificarte con tu número de cliente.",
+          role: 'bot',
+          text: '❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.',
         },
-      ]);
+      ])
+    } finally {
+      setIsLoading(false)
     }
-  }, 700); // ⏱️ tiempo sincronizado con el fadeOut
-};
+  }
 
   return (
     <div
@@ -1242,8 +1445,8 @@ const handleStart = async () => {
       />
 
       {/* 💬 Contenedor principal del chat */}
-<div
-  className="
+      <div
+        className="
   relative z-10 flex flex-col w-full max-w-md h-[90vh] sm:h-[850px]
   bg-white/40 dark:bg-gray-800/30
   backdrop-blur-xl
@@ -1252,9 +1455,9 @@ const handleStart = async () => {
   transition-all duration-700
   mx-2 sm:mx-0
 "
->
+      >
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 bg-green-600 text-white shadow-md dark:bg-green-700">
+        <div className="flex items-center gap-3 p-4 bg-blue-600 text-white shadow-md dark:bg-blue-700">
           <Image
             src="https://upload.wikimedia.org/wikipedia/commons/0/02/Logo_Corte_Ingl%C3%A9s.svg"
             alt="El Corte Inglés"
@@ -1332,6 +1535,8 @@ const handleStart = async () => {
               text={m.text}
               product={m.product}
               products={m.products}
+              onFindSimilar={handleFindSimilar}
+              onGenerateLook={handleGenerateLook}
             />
           ))}
 
@@ -1367,7 +1572,7 @@ const handleStart = async () => {
               </h2>
 
               <p className="text-gray-700 dark:text-gray-300 mb-3">
-                Soy el <strong>Asistente Virtual de El Corte Inglés</strong> 💬
+                Soy el <strong>Asistente Virtual de El Corte Inglés</strong>
               </p>
 
               {/* 🟢 Logo El Corte Inglés */}
@@ -1456,7 +1661,6 @@ export default function InputBox({ onSend, disabled=false, inputRef }: Props) {
 import { User, Bot } from 'lucide-react'
 import type { ChatProduct } from '../lib/types/chat'
 import ProductCard from './ProductCard'
-import SimilarProductsGrid from "./SimilarProductsGrid";
 import SimilarProductsCarousel from "./SimilarProductsCarousel";
 
 interface Props {
@@ -1464,9 +1668,11 @@ interface Props {
   text: string;
   product?: ChatProduct;
   products?: ChatProduct[]; // 👈 importante
+  onFindSimilar?: (product: ChatProduct) => void;
+  onGenerateLook?: (product: ChatProduct) => void;
 }
 
-export default function Message({ role, text, product, products }: Props){
+export default function Message({ role, text, product, products,onFindSimilar, onGenerateLook }: Props){
    console.log("Message props:", { text, product, products });
   const isUser = role === 'user'
 
@@ -1491,11 +1697,11 @@ export default function Message({ role, text, product, products }: Props){
       >
         <p className="mb-2">{text}</p>
 
-        {product && <ProductCard product={product} />}
+        {product && <ProductCard product={product} onFindSimilar={onFindSimilar} onGenerateLook={onGenerateLook}/>}
 
         {/* múltiples productos */}
         {/* Grid de varios productos */}
-        {products && <SimilarProductsCarousel products={products} />}
+        {products && <SimilarProductsCarousel products={products} onFindSimilar={onFindSimilar} onGenerateLook={onGenerateLook}/>}
       </div>
 
       {isUser && (
@@ -1552,11 +1758,17 @@ function ExpandedCard({
   description,
   loadingDesc,
   onBack,
+  isSimilar,
+  onFindSimilar,
+  onGenerateLook
 }: {
   product: ChatProduct
   description: string
   loadingDesc: boolean
   onBack: () => void
+  isSimilar: boolean
+  onFindSimilar?: (product: ChatProduct) => void
+  onGenerateLook?: (product: ChatProduct) => void
 }) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -1619,13 +1831,33 @@ function ExpandedCard({
         </div>
 
         {/* Botón siempre visible abajo */}
-        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+        <div className="flex-shrink-0 p-4 border-t dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex gap-3">
           <button
             onClick={onBack}
-            className="w-full bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
+            className="flex-1 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md transition-colors"
           >
             Volver
           </button>
+          <button
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+            onClick={() => {
+              onBack()
+              onGenerateLook?.(product)
+            }}
+          >
+            Generar look
+          </button>
+          {isSimilar && (
+            <button
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+              onClick={() => {
+                onBack()
+                onFindSimilar?.(product)
+              }}
+            >
+              Buscar similares
+            </button>
+          )}
         </div>
       </div>
     </div>,
@@ -1633,7 +1865,17 @@ function ExpandedCard({
   )
 }
 
-export default function ProductCard({ product }: { product: ChatProduct }) {
+export default function ProductCard({
+  product,
+  isSimilar = false,
+  onFindSimilar,
+  onGenerateLook
+}: {
+  product: ChatProduct
+  isSimilar?: boolean
+  onFindSimilar?: (product: ChatProduct) => void
+  onGenerateLook?: (product: ChatProduct) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const [loadingDesc, setLoadingDesc] = useState(false)
   const [description, setDescription] = useState(
@@ -1698,7 +1940,6 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
           />
           <div className="p-2 text-center">
             <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
-
               {product.name}
             </div>
             {product.score !== undefined && (
@@ -1722,6 +1963,9 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
           description={description}
           loadingDesc={loadingDesc}
           onBack={handleBack}
+          isSimilar={isSimilar}
+          onFindSimilar={onFindSimilar}
+          onGenerateLook={onGenerateLook}
         />
       )}
     </>
@@ -1731,106 +1975,106 @@ export default function ProductCard({ product }: { product: ChatProduct }) {
 
 === Archivo: .\app\components\SimilarProductsCarousel.tsx ===
 
-"use client";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation, Pagination, EffectCoverflow } from "swiper/modules";
+'use client'
+import { useCallback, useEffect } from 'react'
+import useEmblaCarousel from 'embla-carousel-react'
+import Autoplay from 'embla-carousel-autoplay'
+import { motion } from 'framer-motion'
+import ProductCard from './ProductCard'
+import type { ChatProduct } from '../lib/types/chat'
 
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
-import "swiper/css/effect-coverflow";
+export default function SimilarProductsCarousel({
+  products,
+  onFindSimilar,
+  onGenerateLook,
+}: {
+  products: ChatProduct[]
+  onFindSimilar?: (product: ChatProduct) => void
+  onGenerateLook?: (product: ChatProduct) => void
+}) {
+  const autoplay = Autoplay({ delay: 3500, stopOnInteraction: false })
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { align: 'center', loop: true, containScroll: 'trimSnaps' },
+    [autoplay]
+  )
 
-import ProductCard from "./ProductCard";
-import type { ChatProduct } from "../lib/types/chat";
+  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
+  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi])
 
-export default function SimilarProductsCarousel({ products }: { products: ChatProduct[] }) {
-  if (!products || products.length === 0) {
-    return <p className="text-sm text-gray-500">⚠️ No hay productos similares disponibles.</p>;
+  // 🧠 Pausar/Reanudar desde eventos globales
+  useEffect(() => {
+    const handlePause = () => autoplay.stop()
+    const handleResume = () => autoplay.play()
+
+    window.addEventListener('pauseCarousel', handlePause)
+    window.addEventListener('resumeCarousel', handleResume)
+
+    return () => {
+      window.removeEventListener('pauseCarousel', handlePause)
+      window.removeEventListener('resumeCarousel', handleResume)
+    }
+  }, [autoplay])
+
+  if (!products?.length) {
+    return (
+      <p className="text-sm text-gray-500">
+        ⚠️ No hay productos similares disponibles.
+      </p>
+    )
   }
 
   return (
-    <div className="w-full">
-      <Swiper
-        modules={[Navigation, Pagination, EffectCoverflow]}
-        effect="coverflow"
-        grabCursor={true}
-        centeredSlides={true}
-        breakpoints={{
-  320: { slidesPerView: 1 },
-  640: { slidesPerView: 1.3 },
-  768: { slidesPerView: 1.6 },
-  1024: { slidesPerView: 2 },
-}}
-        navigation
-        pagination={{ clickable: true }}
-        coverflowEffect={{
-          rotate: 30,   // ángulo de rotación de las tarjetas
-          stretch: 0,   // separación entre ellas
-          depth: 100,   // profundidad 3D
-          modifier: 1,  // intensidad del efecto
-          slideShadows: true, // sombras
-        }}
-        className="py-6"
+    <div className="relative w-full mt-4">
+      {/* Carrusel principal */}
+      <div ref={emblaRef} className="overflow-hidden">
+        <div className="flex">
+          {products.map((p, i) => (
+            <motion.div
+              key={p.id}
+              className="flex-[0_0_70%] sm:flex-[0_0_40%] md:flex-[0_0_30%] px-3"
+              whileHover={{ scale: 1.05, rotateY: 5 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+            >
+              <motion.div
+                className="transform perspective"
+                initial={{
+                  rotateY: i % 2 === 0 ? -15 : 15,
+                  opacity: 0,
+                  scale: 0.9,
+                }}
+                animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: i * 0.1 }}
+              >
+                <ProductCard
+                  product={p}
+                  isSimilar={true}
+                  onFindSimilar={onFindSimilar}
+                  onGenerateLook={onGenerateLook}
+                />
+              </motion.div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Botones de navegación */}
+      <button
+        onClick={scrollPrev}
+        className="absolute left-0 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/70 hover:bg-green-500/80 text-green-700 shadow-md"
       >
-        {products.map((p) => (
-          <SwiperSlide
-            key={p.id}
-            className="w-56 flex justify-center" // ancho fijo para cada card
-          >
-            <ProductCard product={p} />
-          </SwiperSlide>
-        ))}
-      </Swiper>
-
-      
-<style jsx global>{`
-  /* 🧭 Flechas de navegación más sutiles */
-  .swiper-button-next,
-  .swiper-button-prev {
-    color: rgba(255, 255, 255, 0.6); /* tono suave */
-    width: 28px;
-    height: 28px;
-    transition: all 0.3s ease;
-    opacity: 0;
-  }
-
-  /* Aparecen al pasar el ratón */
-  .swiper:hover .swiper-button-next,
-  .swiper:hover .swiper-button-prev {
-    opacity: 1;
-  }
-
-  /* Efecto hover */
-  .swiper-button-next:hover,
-  .swiper-button-prev:hover {
-    color: #22c55e; /* verde Tailwind */
-    transform: scale(1.1);
-  }
-
-  /* Sombra ligera para mejor contraste */
-  .swiper-button-next::after,
-  .swiper-button-prev::after {
-    text-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
-    font-size: 22px;
-  }
-
-  /* Ajuste de posición para evitar solaparse con las cards */
-  .swiper-button-next {
-    right: 6px;
-  }
-  .swiper-button-prev {
-    left: 6px;
-  }
-
-  /* Mantiene los puntos más abajo */
-  .swiper-pagination {
-    bottom: -254px !important;
-  }
-`}</style>
-
+        ←
+      </button>
+      <button
+        onClick={scrollNext}
+        className="absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/70 hover:bg-green-500/80 text-green-700 shadow-md"
+      >
+        →
+      </button>
     </div>
-  );
+  )
 }
+
 
 === Archivo: .\app\components\SimilarProductsGrid.tsx ===
 
@@ -2458,6 +2702,6 @@ export default function SystemTestPage() {
 
 ============================================================
 Resumen final:
-Total de archivos procesados: 35
-Total de líneas combinadas: 2351
+Total de archivos procesados: 36
+Total de líneas combinadas: 2592
 ============================================================

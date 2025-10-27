@@ -13,6 +13,7 @@ import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
 import { detectIntent } from '../lib/api/llm'
 import type { ProductFilter } from '@/app/lib/types/product'
+import type { LookResponse } from "@/app/lib/types/looks"
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -472,15 +473,20 @@ export default function Chat() {
 
       //const data = await res.json();
 
-      type LookResponse = {
-        estilo: string
-        descripcion_general: string
-        articulos?: { tipo: string; nombre_sugerido: string }[]
-      }
-
       const data: LookResponse = await res.json()
 
-      // 3️⃣ Mensaje final con el resultado del look
+      console.log('🎨 LOOK JSON FROM LLM:', data)
+
+      // 🔍 Formatear visualmente los filtros
+      const formatFilters = (filters?: Record<string, string>) => {
+        if (!filters) return ''
+        return Object.entries(filters)
+          .filter(([_, v]) => v && v !== '...')
+          .map(([k, v]) => `      • ${k}: ${v}`)
+          .join('\n')
+      }
+
+      // 🧾 Construir el texto del mensaje
       const textResult = `
 🧥 **Estilo sugerido:**  
 ${data.estilo || 'No especificado'} 
@@ -490,13 +496,17 @@ ${data.descripcion_general || 'Sin descripción.'}
 
 👗 **Artículos complementarios:**  
 ${
-  data.articulos
-    ?.map(
-      (a, i) =>
-        `   ${i + 1}. **${a.tipo.charAt(0).toUpperCase() + a.tipo.slice(1)}**  
-      ${a.nombre_sugerido}`
-    )
-    .join('\n\n') || 'No disponibles'
+  data.articulos?.length
+    ? data.articulos
+        .map(
+          (a, i) => `
+${i + 1}. **${a.tipo}**  
+   ${a.nombre_sugerido}
+${a.filtros ? formatFilters(a.filtros) : ''}
+`
+        )
+        .join('\n')
+    : 'No disponibles'
 }
 `
 
