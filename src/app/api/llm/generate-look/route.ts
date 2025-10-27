@@ -66,7 +66,7 @@ function randomItem<T>(arr: T[]): T | null {
 
 export async function POST(req: Request) {
   try {
-    const { productName, category } = await req.json();
+    const { productName, category, baseProduct } = await req.json();
     if (!productName) {
       return NextResponse.json(
         { error: "El nombre del producto es obligatorio" },
@@ -210,8 +210,51 @@ Semilla creativa: ${randomSeed}.
       );
     }
 
-    console.log("✅ LOOK FINAL CON PRODUCTOS:", JSON.stringify(parsed, null, 2));
-    return NextResponse.json(parsed);
+    // 🧠 NUEVA FASE: Generar justificación del look
+    const productosFinales = [
+      ...(baseProduct ? [baseProduct] : []),
+      ...(parsed.articulos?.map(a => a.producto).filter(Boolean) || []),
+    ];
+
+    const resumenProductos = productosFinales
+      .map(
+        p =>
+          `- ${p.name} (${p.category || "sin categoría"})`
+      )
+      .join("\n");
+
+    const promptJustificacion = `
+Eres un estilista digital profesional.
+Analiza este conjunto de productos y genera una breve justificación estética (máx. 3 frases)
+explicando por qué forman un look coherente, mencionando estilo, colores o sensaciones.
+
+Productos seleccionados:
+${resumenProductos}
+
+Devuelve solo el texto, sin comillas ni formato adicional.
+`;
+
+    const justific = await client.chat.completions.create({
+      model: process.env.MODEL || "gpt-4o-mini",
+      messages: [{ role: "system", content: promptJustificacion }],
+      temperature: 0.8,
+      max_tokens: 100,
+    });
+
+    const justificacion =
+      justific.choices[0].message?.content?.trim() ||
+      "Este look equilibra estilo, confort y armonía visual en sus combinaciones.";
+
+    const finalResponse = {
+      estilo: parsed.estilo,
+      descripcion_general: parsed.descripcion_general,
+      justificacion,
+      productos_finales: productosFinales,
+    };
+
+
+    console.log("✅ LOOK FINAL CON JUSTIFICACION:", JSON.stringify(finalResponse, null, 2));
+    return NextResponse.json(finalResponse);
   } catch (err) {
     console.error("❌ Error en /api/llm/generate-look:", err);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
