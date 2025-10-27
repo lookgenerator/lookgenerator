@@ -13,7 +13,7 @@ import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
 import { detectIntent } from '../lib/api/llm'
 import type { ProductFilter } from '@/app/lib/types/product'
-import type { LookResponse } from "@/app/lib/types/looks"
+import type { LookArticle, LookResponse } from "@/app/lib/types/looks"
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -445,114 +445,106 @@ export default function Chat() {
     ])
   }
 
-  const handleGenerateLook = async (product: ChatProduct) => {
-    // 1️⃣ Mensaje inicial: aviso y ficha del producto
-    setMessages(prev => [
-      ...prev,
-      {
-        role: 'bot',
-        text: `✨ Generando look sugerido para el producto "${product.name}"...`,
-        product,
-      },
-    ])
+const handleGenerateLook = async (product: ChatProduct) => {
+  // 🧩 1️⃣ Mensaje inicial
+  setMessages(prev => [
+    ...prev,
+    {
+      role: "bot",
+      text: `✨ Generando look sugerido para el producto "${product.name}"...`,
+      product,
+    },
+  ])
 
-    setIsLoading(true)
+  setIsLoading(true)
 
-    try {
-      // 2️⃣ Llamada al nuevo endpoint
-      const res = await fetch('/api/llm/generate-look', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productName: product.name,
+  try {
+    // 🧠 2️⃣ Llamada al nuevo endpoint con producto base incluido
+    const res = await fetch("/api/llm/generate-look", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productName: product.name,
+        category: product.category,
+        baseProduct: {
+          product_id: product.id,
+          name: product.name,
+          image_url: product.image_url,
           category: product.category,
-        }),
-      })
+        },
+      }),
+    })
 
-      if (!res.ok) throw new Error('Error al generar el look')
+    if (!res.ok) throw new Error("Error al generar el look")
 
-      //const data = await res.json();
+    const data = await res.json()
+    console.log("🎨 LOOK COMPLETO:", data)
 
-      const data: LookResponse = await res.json()
+    // 🧾 3️⃣ Mostrar la descripción general y artículos complementarios
+    const formatFilters = (filters?: Record<string, string>) => {
+      if (!filters) return ""
+      return Object.entries(filters)
+        .filter(([_, v]) => v && v !== "...")
+        .map(([k, v]) => `• ${k}: ${v}`)
+        .join(", ")
+    }
 
-      console.log('🎨 LOOK JSON FROM LLM:', data)
-
-      // 🔍 Formatear visualmente los filtros
-      const formatFilters = (filters?: Record<string, string>) => {
-        if (!filters) return ''
-        return Object.entries(filters)
-          .filter(([_, v]) => v && v !== '...')
-          .map(([k, v]) => `      • ${k}: ${v}`)
-          .join('\n')
-      }
-
-      // 🧾 Construir el texto del mensaje
-      const textResult = `
-🧥 **Estilo sugerido:**  
-${data.estilo || 'No especificado'} 
-
-✨ **Descripción:**  
-${data.descripcion_general || 'Sin descripción.'}
+    const textResult = `
+🧥 **Estilo sugerido:** ${data.estilo || "No especificado"}  
+✨ ${data.descripcion_general || "Sin descripción."}
 
 👗 **Artículos complementarios:**  
 ${
   data.articulos?.length
     ? data.articulos
         .map(
-          (a, i) => `
+          (a: LookArticle, i: number) => `
 ${i + 1}. **${a.tipo}**  
-   ${a.nombre_sugerido}
-${a.filtros ? formatFilters(a.filtros) : ''}
+${a.nombre_sugerido}
+${a.filtros ? formatFilters(a.filtros) : ""}
 `
         )
-        .join('\n')
-    : 'No disponibles'
+        .join("\n")
+    : "No disponibles"
 }
 `
+  //  setMessages(prev => [...prev, { role: "bot", text: textResult }])
 
-      setMessages(prev => [...prev, { role: 'bot', text: textResult }])
 
-      // ✅ Ahora enviar cada artículo individualmente con su imagen
-for (const art of data.articulos || []) {
-  const description = `
-**${art.tipo}**  
-${art.nombre_sugerido}
-${art.filtros ? formatFilters(art.filtros) : ""}
-`
-const producto = art.producto;
-if (producto && producto.image_url) {
-  setMessages(prev => [
-    ...prev,
-    {
-      role: "bot",
-      text: description,
-      product: {
-        id: producto.product_id,
-        name: producto.name,
-        image_url: producto.image_url,
-        category: producto.category || "",
-        description: art.nombre_sugerido,
-      },
-    },
-  ])
-} else {
-  setMessages(prev => [...prev, { role: "bot", text: description }])
-}
-}
+    // 🛍️ 5️⃣ Mostrar todos los productos del look (base + complementarios)
+    const productosFinales = (data.productos_finales || []).map((p: ProductFilter) => ({
+      id: p.product_id,
+      name: p.name,
+      image_url: p.image_url,
+      category: p.category || "",
+      description: data.estilo || "",
+    }))
 
-    } catch (err) {
-      console.error('❌ Error generando look:', err)
+    if (productosFinales.length > 0) {
       setMessages(prev => [
         ...prev,
         {
-          role: 'bot',
-          text: '❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.',
+          role: "bot",
+          text: `${data.justificacion}`,
+          products: productosFinales,
         },
       ])
-    } finally {
-      setIsLoading(false)
     }
+  } catch (err) {
+    console.error("❌ Error generando look:", err)
+    setMessages(prev => [
+      ...prev,
+      {
+        role: "bot",
+        text:
+          "❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.",
+      },
+    ])
+  } finally {
+    setIsLoading(false)
   }
+}
+
 
   return (
     <div
