@@ -511,6 +511,35 @@ ${a.filtros ? formatFilters(a.filtros) : ''}
 `
 
       setMessages(prev => [...prev, { role: 'bot', text: textResult }])
+
+      // ✅ Ahora enviar cada artículo individualmente con su imagen
+for (const art of data.articulos || []) {
+  const description = `
+**${art.tipo}**  
+${art.nombre_sugerido}
+${art.filtros ? formatFilters(art.filtros) : ""}
+`
+const producto = art.producto;
+if (producto && producto.image_url) {
+  setMessages(prev => [
+    ...prev,
+    {
+      role: "bot",
+      text: description,
+      product: {
+        id: producto.product_id,
+        name: producto.name,
+        image_url: producto.image_url,
+        category: producto.category || "",
+        description: art.nombre_sugerido,
+      },
+    },
+  ])
+} else {
+  setMessages(prev => [...prev, { role: "bot", text: description }])
+}
+}
+
     } catch (err) {
       console.error('❌ Error generando look:', err)
       setMessages(prev => [
