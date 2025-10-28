@@ -10,10 +10,14 @@ export default function SimilarProductsCarousel({
   products,
   onFindSimilar,
   onGenerateLook,
+  onViewLookWorn,
+  isLook = false
 }: {
   products: ChatProduct[]
   onFindSimilar?: (product: ChatProduct) => void
   onGenerateLook?: (product: ChatProduct) => void
+  onViewLookWorn?: (products: ChatProduct[]) => void;
+  isLook?: boolean
 }) {
   const autoplay = Autoplay({ delay: 3500, stopOnInteraction: false })
   const [emblaRef, emblaApi] = useEmblaCarousel(
@@ -94,6 +98,17 @@ export default function SimilarProductsCarousel({
       >
         →
       </button>
+            {/* 👗 Botón solo visible si es un look */}
+      {isLook && (
+        <div className="flex justify-center mt-6">
+    <button
+      className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg shadow transition-colors"
+      onClick={() => onViewLookWorn?.(products)}
+    >
+      Verlo puesto
+    </button>
+        </div>
+      )}
     </div>
   )
 }

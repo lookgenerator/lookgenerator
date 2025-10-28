@@ -16,9 +16,11 @@
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.544.0",
     "next": "15.5.3",
+    "node-fetch": "^3.3.2",
     "openai": "^5.23.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "sharp": "^0.34.4",
     "swiper": "^12.0.2"
   },
   "devDependencies": {
