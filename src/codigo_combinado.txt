@@ -331,15 +331,71 @@ export async function POST(req: Request) {
 
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { apiFetch } from "@/app/lib/api/client";
+import type { ProductFilter } from "@/app/lib/types/product";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
+// 🧠 Cache de valores de catálogo
+let cachedValues: Record<string, string[]> | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 horas
+
+async function getCachedValues() {
+  const now = Date.now();
+  if (cachedValues && now - lastFetchTime < CACHE_TTL) return cachedValues;
+
+  console.log("♻️ Refrescando valores de catálogo...");
+  try {
+    const [colours, categories, subcategories, articletype, genders, usages, seasons] =
+      await Promise.all([
+        apiFetch<{ values: string[] }>("/products/values/basecolour"),
+        apiFetch<{ values: string[] }>("/products/values/mastercategory"),
+        apiFetch<{ values: string[] }>("/products/values/subcategory"),
+        apiFetch<{ values: string[] }>("/products/values/articletype"),
+        apiFetch<{ values: string[] }>("/products/values/gender"),
+        apiFetch<{ values: string[] }>("/products/values/usage"),
+        apiFetch<{ values: string[] }>("/products/values/season"),
+      ]);
+
+    cachedValues = {
+      basecolour: colours.values,
+      mastercategory: categories.values,
+      subcategory: subcategories.values,
+      articletype: articletype.values,
+      gender: genders.values,
+      usage: usages.values,
+      season: seasons.values,
+    };
+    lastFetchTime = now;
+  } catch (err) {
+    console.error("❌ Error al obtener valores de catálogo:", err);
+    cachedValues = {
+      basecolour: ["Black", "White", "Blue", "Red", "Beige"],
+      mastercategory: ["Apparel", "Accessories", "Footwear"],
+      subcategory: ["Tshirt", "Jeans", "Shoes", "Bag", "Watch"],
+      articletype: ["Belts", "Jeans", "Watches"],
+      gender: ["Men", "Women", "Unisex"],
+      usage: ["Casual", "Formal", "Sports"],
+      season: ["Summer", "Winter", "All"],
+    };
+  }
+
+  return cachedValues!;
+}
+
+// 🎲 Selecciona un producto aleatorio
+function randomItem<T>(arr: T[]): T | null {
+  if (!arr || arr.length === 0) return null;
+  const idx = Math.floor(Math.random() * arr.length);
+  return arr[idx];
+}
+
 export async function POST(req: Request) {
   try {
-    const { productName, category } = await req.json();
-
+    const { productName, category, baseProduct } = await req.json();
     if (!productName) {
       return NextResponse.json(
         { error: "El nombre del producto es obligatorio" },
@@ -347,49 +403,187 @@ export async function POST(req: Request) {
       );
     }
 
+    const values = await getCachedValues();
     const randomSeed = Math.floor(Math.random() * 10000);
 
+    // 🧠 Prompt de generación del look
     const prompt = `
-Eres un estilista de moda que trabaja para El Corte Inglés.
-Tu tarea es sugerir un **look completo** a partir de una prenda o producto base.
+Eres un estilista digital de El Corte Inglés.
+Tu tarea es generar un look completo (2–4 artículos) a partir del producto base. No recomiendes un artículo de la misma categoría que el producto base.
 
-Detalles del producto base:
+Producto base:
 - Nombre: "${productName}"
 - Categoría: "${category || "sin especificar"}"
 
-Instrucciones:
-1. Propón entre **2 y 4 artículos complementarios** (ropa, calzado o accesorios) que combinen con el producto base.
-2. Indica el estilo general del look (por ejemplo: casual, elegante, deportivo, etc.).
-3. Devuelve la respuesta en formato **JSON** con el siguiente esquema:
+Usa solo valores válidos del catálogo:
+- basecolour: ${values.basecolour.slice(0, 15).join(", ")}
+- mastercategory: ${values.mastercategory.slice(0, 20).join(", ")}
+- subcategory: ${values.subcategory.slice(0, 20).join(", ")}
+- articletype: ${values.articletype.slice(0, 20).join(", ")}
+- gender: ${values.gender.join(", ")}
+- usage: ${values.usage.join(", ")}
+- season: ${values.season.join(", ")}
+
+Devuelve solo JSON con este formato:
 {
   "estilo": "...",
   "descripcion_general": "...",
   "articulos": [
-    {"tipo": "...", "nombre_sugerido": "..."},
-    ...
+    {
+      "tipo": "...",
+      "nombre_sugerido": "...",
+      "filtros": {
+        "gender": "...",
+        "mastercategory": "...",
+        "subcategory": "...",
+        "articletype": "...",
+        "basecolour": "...",
+        "usage": "...",
+        "season": "..."
+      }
+    }
   ]
 }
-4. No incluyas texto adicional fuera del JSON.
-5. Genera variaciones ligeras según la semilla aleatoria: ${randomSeed}.
-    `;
+Semilla creativa: ${randomSeed}.
+`;
 
     const completion = await client.chat.completions.create({
       model: process.env.MODEL || "gpt-4o-mini",
       messages: [{ role: "system", content: prompt }],
       temperature: 1,
-      max_tokens: 300,
+      max_tokens: 600,
     });
 
     const content = completion.choices[0].message?.content?.trim() || "{}";
+    console.log("🧾 RAW LLM OUTPUT:\n", content);
 
-    let parsed;
+    // Intentar parsear JSON
+    let parsed: {
+      estilo: string;
+      descripcion_general: string;
+      articulos?: {
+        tipo: string;
+        nombre_sugerido: string;
+        filtros?: Record<string, string>;
+        producto?: ProductFilter | null;
+      }[];
+    };
     try {
       parsed = JSON.parse(content);
     } catch {
       parsed = { estilo: "Desconocido", descripcion_general: content, articulos: [] };
     }
 
-    return NextResponse.json(parsed);
+    // 🧩 Buscar productos reales
+    for (const art of parsed.articulos || []) {
+      if (!art.filtros) continue;
+
+      const filtrosActuales = { ...art.filtros };
+      let results: ProductFilter[] = [];
+
+      // 🔢 Orden de importancia
+      const importancia = [
+        "gender",
+        "mastercategory",
+        "subcategory",
+        "articletype",
+        "basecolour",
+        "usage",
+        "season",
+      ];
+
+      console.log(`🎯 Buscando producto para: ${art.nombre_sugerido}`);
+      console.log("Filtros iniciales:", filtrosActuales);
+
+      // 🔁 Reducir progresivamente los filtros según importancia
+      while (results.length === 0 && Object.keys(filtrosActuales).length > 0) {
+        const query = new URLSearchParams({ ...filtrosActuales, limit: "10" }).toString();
+        const productos = await apiFetch<ProductFilter[]>(`/products/filter?${query}`);
+
+        if (productos.length > 0) {
+          results = productos;
+          console.log(`✅ ${productos.length} productos encontrados.`);
+          break;
+        }
+
+        // Eliminar el filtro menos importante que quede activo
+        const filtrosActivos = Object.keys(filtrosActuales);
+        const menosImportante = importancia
+          .slice()
+          .reverse()
+          .find(key => filtrosActivos.includes(key));
+
+        if (menosImportante) {
+          console.log(`⚠️ Sin resultados. Eliminando filtro: ${menosImportante}`);
+          delete filtrosActuales[menosImportante as keyof typeof filtrosActuales];
+        } else {
+          console.log("⚠️ No quedan filtros para eliminar.");
+          break;
+        }
+      }
+
+      // 🧩 Fallback final si aún no hay resultados
+      if (results.length === 0) {
+        console.warn("⚠️ Fallback final: sin resultados, usando productos aleatorios.");
+        const randoms = await apiFetch<ProductFilter[]>("/products/filter?limit=10");
+        results = randoms;
+      }
+
+      // 🎲 Elegir uno aleatorio
+      const elegido = results.length > 0 ? randomItem(results) : null;
+      art.producto = elegido;
+
+      console.log(
+        `🎯 Producto final para "${art.nombre_sugerido}":`,
+        elegido ? elegido.name : "Ninguno encontrado"
+      );
+    }
+
+    // 🧠 NUEVA FASE: Generar justificación del look
+    const productosFinales = [
+      ...(baseProduct ? [baseProduct] : []),
+      ...(parsed.articulos?.map(a => a.producto).filter(Boolean) || []),
+    ];
+
+    const resumenProductos = productosFinales
+      .map(
+        p =>
+          `- ${p.name} (${p.category || "sin categoría"})`
+      )
+      .join("\n");
+
+    const promptJustificacion = `
+Eres un estilista digital profesional.
+Analiza este conjunto de productos y genera una breve justificación estética (máx. 3 frases)
+explicando por qué forman un look coherente, mencionando estilo, colores o sensaciones.
+
+Productos seleccionados:
+${resumenProductos}
+
+Devuelve solo el texto, sin comillas ni formato adicional.
+`;
+
+    const justific = await client.chat.completions.create({
+      model: process.env.MODEL || "gpt-4o-mini",
+      messages: [{ role: "system", content: promptJustificacion }],
+      temperature: 0.8,
+      max_tokens: 100,
+    });
+
+    const justificacion =
+      justific.choices[0].message?.content?.trim() ||
+      "Este look equilibra estilo, confort y armonía visual en sus combinaciones.";
+
+    const finalResponse = {
+      estilo: parsed.estilo,
+      descripcion_general: parsed.descripcion_general,
+      justificacion,
+      productos_finales: productosFinales,
+    };
+
+
+    console.log("✅ LOOK FINAL CON JUSTIFICACION:", JSON.stringify(finalResponse, null, 2));
+    return NextResponse.json(finalResponse);
   } catch (err) {
     console.error("❌ Error en /api/llm/generate-look:", err);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
@@ -912,6 +1106,7 @@ import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
 import { detectIntent } from '../lib/api/llm'
 import type { ProductFilter } from '@/app/lib/types/product'
+import type { LookArticle, LookResponse } from "@/app/lib/types/looks"
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -1343,76 +1538,106 @@ export default function Chat() {
     ])
   }
 
-  const handleGenerateLook = async (product: ChatProduct) => {
-    // 1️⃣ Mensaje inicial: aviso y ficha del producto
-    setMessages(prev => [
-      ...prev,
-      {
-        role: 'bot',
-        text: `✨ Generando look sugerido para el producto "${product.name}"...`,
-        product,
-      },
-    ])
+const handleGenerateLook = async (product: ChatProduct) => {
+  // 🧩 1️⃣ Mensaje inicial
+  setMessages(prev => [
+    ...prev,
+    {
+      role: "bot",
+      text: `✨ Generando look sugerido para el producto "${product.name}"...`,
+      product,
+    },
+  ])
 
-    setIsLoading(true)
+  setIsLoading(true)
 
-    try {
-      // 2️⃣ Llamada al nuevo endpoint
-      const res = await fetch('/api/llm/generate-look', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productName: product.name,
+  try {
+    // 🧠 2️⃣ Llamada al nuevo endpoint con producto base incluido
+    const res = await fetch("/api/llm/generate-look", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productName: product.name,
+        category: product.category,
+        baseProduct: {
+          product_id: product.id,
+          name: product.name,
+          image_url: product.image_url,
           category: product.category,
-        }),
-      })
+        },
+      }),
+    })
 
-      if (!res.ok) throw new Error('Error al generar el look')
+    if (!res.ok) throw new Error("Error al generar el look")
 
-      //const data = await res.json();
+    const data = await res.json()
+    console.log("🎨 LOOK COMPLETO:", data)
 
-      type LookResponse = {
-        estilo: string
-        descripcion_general: string
-        articulos?: { tipo: string; nombre_sugerido: string }[]
-      }
+    // 🧾 3️⃣ Mostrar la descripción general y artículos complementarios
+    const formatFilters = (filters?: Record<string, string>) => {
+      if (!filters) return ""
+      return Object.entries(filters)
+        .filter(([_, v]) => v && v !== "...")
+        .map(([k, v]) => `• ${k}: ${v}`)
+        .join(", ")
+    }
 
-      const data: LookResponse = await res.json()
-
-      // 3️⃣ Mensaje final con el resultado del look
-      const textResult = `
-🧥 **Estilo sugerido:**  
-${data.estilo || 'No especificado'} 
-
-✨ **Descripción:**  
-${data.descripcion_general || 'Sin descripción.'}
+    const textResult = `
+🧥 **Estilo sugerido:** ${data.estilo || "No especificado"}  
+✨ ${data.descripcion_general || "Sin descripción."}
 
 👗 **Artículos complementarios:**  
 ${
-  data.articulos
-    ?.map(
-      (a, i) =>
-        `   ${i + 1}. **${a.tipo.charAt(0).toUpperCase() + a.tipo.slice(1)}**  
-      ${a.nombre_sugerido}`
-    )
-    .join('\n\n') || 'No disponibles'
+  data.articulos?.length
+    ? data.articulos
+        .map(
+          (a: LookArticle, i: number) => `
+${i + 1}. **${a.tipo}**  
+${a.nombre_sugerido}
+${a.filtros ? formatFilters(a.filtros) : ""}
+`
+        )
+        .join("\n")
+    : "No disponibles"
 }
 `
+  //  setMessages(prev => [...prev, { role: "bot", text: textResult }])
 
-      setMessages(prev => [...prev, { role: 'bot', text: textResult }])
-    } catch (err) {
-      console.error('❌ Error generando look:', err)
+
+    // 🛍️ 5️⃣ Mostrar todos los productos del look (base + complementarios)
+    const productosFinales = (data.productos_finales || []).map((p: ProductFilter) => ({
+      id: p.product_id,
+      name: p.name,
+      image_url: p.image_url,
+      category: p.category || "",
+      description: data.estilo || "",
+    }))
+
+    if (productosFinales.length > 0) {
       setMessages(prev => [
         ...prev,
         {
-          role: 'bot',
-          text: '❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.',
+          role: "bot",
+          text: `${data.justificacion}`,
+          products: productosFinales,
         },
       ])
-    } finally {
-      setIsLoading(false)
     }
+  } catch (err) {
+    console.error("❌ Error generando look:", err)
+    setMessages(prev => [
+      ...prev,
+      {
+        role: "bot",
+        text:
+          "❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.",
+      },
+    ])
+  } finally {
+    setIsLoading(false)
   }
+}
+
 
   return (
     <div
@@ -2301,6 +2526,34 @@ export interface Customer {
 }
 
 
+=== Archivo: .\app\lib\types\looks.ts ===
+
+export interface LookArticle {
+  tipo: string;
+  nombre_sugerido: string;
+  filtros?: {
+    mastercategory?: string;
+    subcategory?: string;
+    articletype?: string;
+    basecolour?: string;
+    gender?: string;
+    usage?: string;
+    season?: string;
+  };
+  producto?: {
+    product_id: number;
+    name: string;
+    image_url: string;
+    category?: string;
+  } | null;
+};
+
+export interface LookResponse {
+  estilo: string
+  descripcion_general: string
+  articulos?: LookArticle[]
+}
+
 === Archivo: .\app\lib\types\product.ts ===
 
 export interface ProductSingle {
@@ -2702,6 +2955,6 @@ export default function SystemTestPage() {
 
 ============================================================
 Resumen final:
-Total de archivos procesados: 36
-Total de líneas combinadas: 2592
+Total de archivos procesados: 37
+Total de líneas combinadas: 2842
 ============================================================
