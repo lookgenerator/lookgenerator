@@ -12,6 +12,8 @@ export interface ChatProduct {
 export interface MessageItem {
   role: ChatRole;
   text: string;
+  image?: string;
   product?: ChatProduct;
   products?: ChatProduct[];
+  isLook?: boolean;
 }
