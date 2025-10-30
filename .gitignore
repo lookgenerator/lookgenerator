@@ -44,12 +44,22 @@ next-env.d.ts
 src/.virtual_documents/
 src/anaconda_projects/
 
-# amplify
-.amplify
-amplify_outputs*
-amplifyconfiguration*
-
+# === Amplify Gen 2 ===
+.amplify/
+amplify/.sandbox-config.json
 amplify/.temp/
 amplify/
+amplify/backend-build/
+amplify/dist/
+amplify/functions/**/node_modules/
+amplify/node_modules/
+
+# Node modules generales
+node_modules/
+*/node_modules/
+
+# Build artifacts
+.next/
 dist/
 build/
+out/
