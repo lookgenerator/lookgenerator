@@ -109,6 +109,7 @@ html, body {
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./lib/amplifyConfig";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -587,6 +588,180 @@ Devuelve solo el texto, sin comillas ni formato adicional.
   } catch (err) {
     console.error("❌ Error en /api/llm/generate-look:", err);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+  }
+}
+
+
+=== Archivo: .\app\api\llm\generate-look-image\route.ts ===
+
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import sharp from "sharp";
+import fetch from "node-fetch";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+// 🔧 Helper para descargar imágenes con cabeceras y proxies
+async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+  try {
+    // 1️⃣ Intento directo con cabeceras de navegador
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        Referer: "https://www.google.com/",
+      },
+    });
+    if (res.ok) return Buffer.from(await res.arrayBuffer());
+  } catch {}
+
+  try {
+    // 2️⃣ Proxy alternativo Jina AI
+    const jinaProxy = `https://r.jina.ai/${url}`;
+    const r2 = await fetch(jinaProxy);
+    if (r2.ok) return Buffer.from(await r2.arrayBuffer());
+  } catch {}
+
+  try {
+    // 3️⃣ Proxy Weserv
+    const wsProxy = `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
+    const r3 = await fetch(wsProxy);
+    if (r3.ok) return Buffer.from(await r3.arrayBuffer());
+  } catch {}
+
+  console.warn(`⚠️ No se pudo descargar la imagen: ${url}`);
+  return null;
+}
+
+export async function POST(req: Request) {
+  try {
+    const { products } = await req.json();
+    if (!products || products.length === 0) {
+      return NextResponse.json(
+        { error: "No se proporcionaron imágenes de productos." },
+        { status: 400 }
+      );
+    }
+
+    console.log(`🧩 Descargando ${products.length} imágenes...`);
+    const buffers: Buffer[] = [];
+
+    for (const p of products) {
+      const buf = await fetchImageBuffer(p.image_url);
+      if (buf) {
+        buffers.push(buf);
+        console.log(`✅ Imagen descargada: ${p.image_url}`);
+      } else {
+        console.warn(`⚠️ No se pudo descargar: ${p.image_url}`);
+      }
+    }
+
+    if (buffers.length === 0)
+      return NextResponse.json(
+        { error: "No se pudo descargar ninguna imagen válida." },
+        { status: 400 }
+      );
+
+    // === 2️⃣ Combinar imágenes con sharp ===
+    const targetHeight = 400;
+
+    const resized = await Promise.all(
+      buffers.map(async (b) => {
+        const meta = await sharp(b).metadata();
+        const width = Math.round(
+          ((meta.width || targetHeight) * targetHeight) /
+            (meta.height || targetHeight)
+        );
+        return sharp(b).resize(width, targetHeight).toBuffer();
+      })
+    );
+
+    // Obtener metadatos reales
+    const metadataList = await Promise.all(resized.map((img) => sharp(img).metadata()));
+
+    // Calcular ancho total
+    const combinedWidth = metadataList.reduce(
+      (acc, m) => acc + (m.width || 400),
+      0
+    );
+
+    // Combinar horizontalmente
+    const combined = await sharp({
+      create: {
+        width: combinedWidth,
+        height: targetHeight,
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 },
+      },
+    })
+      .composite(
+        resized.map((img, i) => ({
+          input: img,
+          top: 0,
+          left: metadataList
+            .slice(0, i)
+            .reduce((sum, m) => sum + (m.width || 400), 0),
+        }))
+      )
+      .jpeg()
+      .toBuffer();
+
+    console.log("✅ Imágenes combinadas correctamente.");
+
+    // Generar Base64 para previsualización
+    const combinedBase64 = `data:image/jpeg;base64,${combined.toString("base64")}`;
+
+    // === 3️⃣ Prompt para gpt-image-1 ===
+    const prompt = `
+    Fotografía de moda capturada a distancia (plano general),
+mostrando una figura humana completa de pies a cabeza dentro del encuadre cuadrado.
+La persona viste las prendas de la imagen de referencia.
+El fondo es neutro y la iluminación suave.
+Alta resolución, sin texto ni logotipos.
+`;
+
+    // === 4️⃣ Convertir buffer en File ===
+    const file = new File([new Uint8Array(combined)], "look.jpg", {
+      type: "image/jpeg",
+    });
+
+    // === 5️⃣ Llamar al modelo gpt-image-1 ===
+
+    console.log("🎨 Generando imagen con gpt-image-1...");
+    const response = await client.images.edit({
+      model: "gpt-image-1",
+      prompt,
+      image: file,
+      size: "1024x1024",
+      n: 1,
+    });
+
+    const imageData = response.data?.[0];
+    if (!imageData) throw new Error("No se recibió ninguna imagen generada.");
+
+    console.log("✅ Imagen generada correctamente.");
+
+    return NextResponse.json({
+      image_url: imageData.url ?? null,
+      base64: imageData.b64_json ?? null,
+      combined_preview: combinedBase64, // 👈 devolvemos la imagen combinada
+      description:
+        "Imagen generada por IA: modelo vistiendo el look completo. Incluye vista previa de combinación.",
+    });
+  } catch (err) {
+    console.error("❌ Error generando imagen del look:", err);
+    return NextResponse.json(
+      { error: "Error interno al generar la imagen del look." },
+      { status: 500 }
+    );
   }
 }
 
@@ -1106,7 +1281,7 @@ import type { Customer } from '../lib/types/customer'
 import { User } from 'lucide-react'
 import { detectIntent } from '../lib/api/llm'
 import type { ProductFilter } from '@/app/lib/types/product'
-import type { LookArticle, LookResponse } from "@/app/lib/types/looks"
+import type { LookArticle, LookResponse } from '@/app/lib/types/looks'
 
 export default function Chat() {
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -1538,53 +1713,53 @@ export default function Chat() {
     ])
   }
 
-const handleGenerateLook = async (product: ChatProduct) => {
-  // 🧩 1️⃣ Mensaje inicial
-  setMessages(prev => [
-    ...prev,
-    {
-      role: "bot",
-      text: `✨ Generando look sugerido para el producto "${product.name}"...`,
-      product,
-    },
-  ])
+  const handleGenerateLook = async (product: ChatProduct) => {
+    // 🧩 1️⃣ Mensaje inicial
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: `✨ Generando look sugerido para el producto "${product.name}"...`,
+        product,
+      },
+    ])
 
-  setIsLoading(true)
+    setIsLoading(true)
 
-  try {
-    // 🧠 2️⃣ Llamada al nuevo endpoint con producto base incluido
-    const res = await fetch("/api/llm/generate-look", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        productName: product.name,
-        category: product.category,
-        baseProduct: {
-          product_id: product.id,
-          name: product.name,
-          image_url: product.image_url,
+    try {
+      // 🧠 2️⃣ Llamada al nuevo endpoint con producto base incluido
+      const res = await fetch('/api/llm/generate-look', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName: product.name,
           category: product.category,
-        },
-      }),
-    })
+          baseProduct: {
+            product_id: product.id,
+            name: product.name,
+            image_url: product.image_url,
+            category: product.category,
+          },
+        }),
+      })
 
-    if (!res.ok) throw new Error("Error al generar el look")
+      if (!res.ok) throw new Error('Error al generar el look')
 
-    const data = await res.json()
-    console.log("🎨 LOOK COMPLETO:", data)
+      const data = await res.json()
+      console.log('🎨 LOOK COMPLETO:', data)
 
-    // 🧾 3️⃣ Mostrar la descripción general y artículos complementarios
-    const formatFilters = (filters?: Record<string, string>) => {
-      if (!filters) return ""
-      return Object.entries(filters)
-        .filter(([_, v]) => v && v !== "...")
-        .map(([k, v]) => `• ${k}: ${v}`)
-        .join(", ")
-    }
+      // 🧾 3️⃣ Mostrar la descripción general y artículos complementarios
+      const formatFilters = (filters?: Record<string, string>) => {
+        if (!filters) return ''
+        return Object.entries(filters)
+          .filter(([_, v]) => v && v !== '...')
+          .map(([k, v]) => `• ${k}: ${v}`)
+          .join(', ')
+      }
 
-    const textResult = `
-🧥 **Estilo sugerido:** ${data.estilo || "No especificado"}  
-✨ ${data.descripcion_general || "Sin descripción."}
+      const textResult = `
+🧥 **Estilo sugerido:** ${data.estilo || 'No especificado'}  
+✨ ${data.descripcion_general || 'Sin descripción.'}
 
 👗 **Artículos complementarios:**  
 ${
@@ -1594,49 +1769,134 @@ ${
           (a: LookArticle, i: number) => `
 ${i + 1}. **${a.tipo}**  
 ${a.nombre_sugerido}
-${a.filtros ? formatFilters(a.filtros) : ""}
+${a.filtros ? formatFilters(a.filtros) : ''}
 `
         )
-        .join("\n")
-    : "No disponibles"
+        .join('\n')
+    : 'No disponibles'
 }
 `
-  //  setMessages(prev => [...prev, { role: "bot", text: textResult }])
+      //  setMessages(prev => [...prev, { role: "bot", text: textResult }])
 
+      // 🛍️ 5️⃣ Mostrar todos los productos del look (base + complementarios)
+      const productosFinales = (data.productos_finales || []).map(
+        (p: ProductFilter) => ({
+          id: p.product_id,
+          name: p.name,
+          image_url: p.image_url,
+          category: p.category || '',
+          description: data.estilo || '',
+        })
+      )
 
-    // 🛍️ 5️⃣ Mostrar todos los productos del look (base + complementarios)
-    const productosFinales = (data.productos_finales || []).map((p: ProductFilter) => ({
-      id: p.product_id,
-      name: p.name,
-      image_url: p.image_url,
-      category: p.category || "",
-      description: data.estilo || "",
-    }))
-
-    if (productosFinales.length > 0) {
+      if (productosFinales.length > 0) {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'bot',
+            text: `${data.justificacion}`,
+            products: productosFinales,
+            isLook: true,
+          },
+        ])
+      }
+    } catch (err) {
+      console.error('❌ Error generando look:', err)
       setMessages(prev => [
         ...prev,
         {
-          role: "bot",
-          text: `${data.justificacion}`,
-          products: productosFinales,
+          role: 'bot',
+          text: '❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.',
         },
       ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+ // === Nueva versión para Amplify ===
+const handleViewLookWorn = async (products: ChatProduct[]) => {
+  // 🧵 1️⃣ Avisar al usuario
+  setMessages((prev) => [
+    ...prev,
+    {
+      role: "bot",
+      text: "👗 Generando imagen del look completo... Esto puede tardar unos segundos ⏳",
+    },
+  ]);
+
+  setIsLoading(true);
+
+  try {
+    // 🧩 2️⃣ Llamada directa a la función Amplify
+    const res = await fetch("/amplify/function/llm-look-function", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ products }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Error ${res.status}: ${errText}`);
+    }
+
+    const data = await res.json();
+
+    // === 3️⃣ Mostrar vista previa combinada (opcional) ===
+    if (data.combined_preview) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "bot",
+          text: "🧩 Vista previa de las prendas combinadas:",
+        },
+        {
+          role: "bot",
+          text: "",
+          image: data.combined_preview,
+        },
+      ]);
+    }
+
+    // === 4️⃣ Mostrar imagen final ===
+    if (data.image_url || data.base64) {
+      const finalImage =
+        data.image_url || `data:image/png;base64,${data.base64}`;
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "bot",
+          text: "✅ Imagen final generada por IA:",
+        },
+        {
+          role: "bot",
+          text: "",
+          image: finalImage,
+        },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "bot",
+          text: "❌ No se pudo generar la imagen final del look.",
+        },
+      ]);
     }
   } catch (err) {
-    console.error("❌ Error generando look:", err)
-    setMessages(prev => [
+    console.error("❌ Error generando la imagen del look:", err);
+    setMessages((prev) => [
       ...prev,
       {
         role: "bot",
-        text:
-          "❌ Ocurrió un error al generar el look. Inténtalo de nuevo más tarde.",
+        text: "❌ Ocurrió un error al generar la imagen del look. Inténtalo de nuevo más tarde.",
       },
-    ])
+    ]);
   } finally {
-    setIsLoading(false)
+    setIsLoading(false);
   }
-}
+};
 
 
   return (
@@ -1758,10 +2018,13 @@ ${a.filtros ? formatFilters(a.filtros) : ""}
               key={i}
               role={m.role}
               text={m.text}
+              image={m.image}
               product={m.product}
               products={m.products}
               onFindSimilar={handleFindSimilar}
               onGenerateLook={handleGenerateLook}
+              isLook={m.isLook}
+              onViewLookWorn={handleViewLookWorn}
             />
           ))}
 
@@ -1886,19 +2149,32 @@ export default function InputBox({ onSend, disabled=false, inputRef }: Props) {
 import { User, Bot } from 'lucide-react'
 import type { ChatProduct } from '../lib/types/chat'
 import ProductCard from './ProductCard'
-import SimilarProductsCarousel from "./SimilarProductsCarousel";
+import SimilarProductsCarousel from './SimilarProductsCarousel'
 
 interface Props {
-  role: "user" | "bot";
-  text: string;
-  product?: ChatProduct;
-  products?: ChatProduct[]; // 👈 importante
-  onFindSimilar?: (product: ChatProduct) => void;
-  onGenerateLook?: (product: ChatProduct) => void;
+  role: 'user' | 'bot'
+  text: string
+  image?: string
+  product?: ChatProduct
+  products?: ChatProduct[] // 👈 importante
+  onFindSimilar?: (product: ChatProduct) => void
+  onGenerateLook?: (product: ChatProduct) => void
+  onViewLookWorn?: (products: ChatProduct[]) => void
+  isLook?: boolean
 }
 
-export default function Message({ role, text, product, products,onFindSimilar, onGenerateLook }: Props){
-   console.log("Message props:", { text, product, products });
+export default function Message({
+  role,
+  text,
+  image,
+  product,
+  products,
+  onFindSimilar,
+  onGenerateLook,
+  onViewLookWorn,
+  isLook,
+}: Props) {
+  console.log('Message props:', { text, product, products })
   const isUser = role === 'user'
 
   return (
@@ -1922,11 +2198,38 @@ export default function Message({ role, text, product, products,onFindSimilar, o
       >
         <p className="mb-2">{text}</p>
 
-        {product && <ProductCard product={product} onFindSimilar={onFindSimilar} onGenerateLook={onGenerateLook}/>}
+{image && (
+  <div className="flex justify-center my-3">
+    <img
+      src={image}
+      alt="Imagen generada"
+      className="rounded-xl max-w-full h-auto shadow-md object-contain"
+      style={{
+        maxHeight: "600px", // 🔹 permite ver la imagen completa
+      }}
+    />
+  </div>
+)}
+
+        {product && (
+          <ProductCard
+            product={product}
+            onFindSimilar={onFindSimilar}
+            onGenerateLook={onGenerateLook}
+          />
+        )}
 
         {/* múltiples productos */}
         {/* Grid de varios productos */}
-        {products && <SimilarProductsCarousel products={products} onFindSimilar={onFindSimilar} onGenerateLook={onGenerateLook}/>}
+        {products && (
+          <SimilarProductsCarousel
+            products={products}
+            onFindSimilar={onFindSimilar}
+            onGenerateLook={onGenerateLook}
+            onViewLookWorn={onViewLookWorn}
+            isLook={isLook}
+          />
+        )}
       </div>
 
       {isUser && (
@@ -2212,10 +2515,14 @@ export default function SimilarProductsCarousel({
   products,
   onFindSimilar,
   onGenerateLook,
+  onViewLookWorn,
+  isLook = false
 }: {
   products: ChatProduct[]
   onFindSimilar?: (product: ChatProduct) => void
   onGenerateLook?: (product: ChatProduct) => void
+  onViewLookWorn?: (products: ChatProduct[]) => void;
+  isLook?: boolean
 }) {
   const autoplay = Autoplay({ delay: 3500, stopOnInteraction: false })
   const [emblaRef, emblaApi] = useEmblaCarousel(
@@ -2296,6 +2603,17 @@ export default function SimilarProductsCarousel({
       >
         →
       </button>
+            {/* 👗 Botón solo visible si es un look */}
+      {isLook && (
+        <div className="flex justify-center mt-6">
+    <button
+      className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg shadow transition-colors"
+      onClick={() => onViewLookWorn?.(products)}
+    >
+      Verlo puesto
+    </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -2356,6 +2674,15 @@ export default function useDarkMode() {
 
   return [enabled, setEnabled] as const;
 }
+
+=== Archivo: .\app\lib\amplifyConfig.ts ===
+
+import outputs from "../../../amplify_outputs.json";
+import { Amplify } from "aws-amplify";
+
+// Inicializa Amplify con los outputs del sandbox
+Amplify.configure(outputs);
+
 
 === Archivo: .\app\lib\api\auth.ts ===
 
@@ -2506,8 +2833,10 @@ export interface ChatProduct {
 export interface MessageItem {
   role: ChatRole;
   text: string;
+  image?: string;
   product?: ChatProduct;
   products?: ChatProduct[];
+  isLook?: boolean;
 }
 
 === Archivo: .\app\lib\types\customer.ts ===
@@ -2955,6 +3284,6 @@ export default function SystemTestPage() {
 
 ============================================================
 Resumen final:
-Total de archivos procesados: 37
-Total de líneas combinadas: 2842
+Total de archivos procesados: 39
+Total de líneas combinadas: 3165
 ============================================================

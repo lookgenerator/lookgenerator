@@ -1,0 +1,12 @@
+{
+  "name": "llm-look-function",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "handler.ts",
+  "dependencies": {
+    "form-data": "^4.0.4",
+    "formdata-polyfill": "^4.0.10",
+    "jimp": "^0.22.10",
+    "node-fetch": "^3.3.2"
+  }
+}

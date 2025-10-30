@@ -546,58 +546,64 @@ ${a.filtros ? formatFilters(a.filtros) : ''}
     }
   }
 
- const handleViewLookWorn = async (products: ChatProduct[]) => {
+ // === Nueva versión para Amplify ===
+const handleViewLookWorn = async (products: ChatProduct[]) => {
   // 🧵 1️⃣ Avisar al usuario
-  setMessages(prev => [
+  setMessages((prev) => [
     ...prev,
-    { role: "bot", text: "👗 Generando imagen del look completo...paciencia, puede tardar un poco" },
+    {
+      role: "bot",
+      text: "👗 Generando imagen del look completo... Esto puede tardar unos segundos ⏳",
+    },
   ]);
 
-      setIsLoading(true)
+  setIsLoading(true);
 
   try {
-    // 🧩 2️⃣ Llamar al backend
-    const res = await fetch("/api/llm/generate-look-image", {
+    console.log("🧩 [1] Enviando solicitud a Lambda...");
+    console.log("🧩 [1.1] Productos enviados:", products);
+    // 🧩 2️⃣ Llamada directa a la función Amplify
+    const res = await fetch("https://dxg6577c55jahq2ei7qbsru67e0ysybw.lambda-url.eu-west-3.on.aws/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ products }),
     });
 
+    console.log("🧩 [2] Respuesta recibida de Lambda:", res);
+    console.log("🧩 [2.1] Estado HTTP:", res.status);
+
     if (!res.ok) {
-      throw new Error(`Error al generar imagen: ${res.status}`);
+      const errText = await res.text();
+      throw new Error(`Error ${res.status}: ${errText}`);
     }
 
     const data = await res.json();
 
-    // === 3️⃣ Mostrar imagen combinada en un mensaje nuevo ===
-    /*if (data.combined_preview) {
-      setMessages(prev => [
+    console.log("🧩 [4] JSON parseado correctamente:", data);
+
+    // === 3️⃣ Mostrar vista previa combinada (opcional) ===
+    if (data.combined_preview) {
+      console.log("🧩 [5] Imagen de look recibida:", data.combined_preview);
+      setMessages((prev) => [
         ...prev,
         {
           role: "bot",
-          text: "🧩 Así se ve la combinación de las prendas antes de generar el look final:",
+          text: "🧩 Vista previa de las prendas combinadas:",
         },
         {
           role: "bot",
           text: "",
-          image: data.combined_preview, // 👈 añadimos la imagen directamente
+          image: data.combined_preview,
         },
       ]);
     }
 
-    // === 4️⃣ Mostrar progreso ===
-    setMessages(prev => [
-      ...prev,
-      { role: "bot", text: "🎨 Generando imagen final con gpt-image-1..." },
-    ]);*/
-
-    
-    // === 5️⃣ Mostrar imagen final (si existe) ===
+    // === 4️⃣ Mostrar imagen final ===
     if (data.image_url || data.base64) {
       const finalImage =
         data.image_url || `data:image/png;base64,${data.base64}`;
 
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           role: "bot",
@@ -606,23 +612,29 @@ ${a.filtros ? formatFilters(a.filtros) : ''}
         {
           role: "bot",
           text: "",
-          image: finalImage, // 👈 otra imagen, otro mensaje
+          image: finalImage,
         },
       ]);
     } else {
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
-        { role: "bot", text: "❌ No se pudo generar la imagen final del look." },
+        {
+          role: "bot",
+          text: "❌ No se pudo generar la imagen final del look.",
+        },
       ]);
     }
   } catch (err) {
     console.error("❌ Error generando la imagen del look:", err);
-    setMessages(prev => [
+    setMessages((prev) => [
       ...prev,
-      { role: "bot", text: "❌ Error al generar la imagen del look." },
+      {
+        role: "bot",
+        text: "❌ Ocurrió un error al generar la imagen del look. Inténtalo de nuevo más tarde.",
+      },
     ]);
-  } finally{
-        setIsLoading(false)
+  } finally {
+    setIsLoading(false);
   }
 };
 
