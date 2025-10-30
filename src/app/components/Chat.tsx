@@ -588,7 +588,7 @@ const handleViewLookWorn = async (products: ChatProduct[]) => {
         ...prev,
         {
           role: "bot",
-          text: "🧩 Vista previa de las prendas combinadas:",
+          text: "🧩 Vista previa de las prendas:",
         },
         {
           role: "bot",
