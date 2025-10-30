@@ -45,7 +45,7 @@ src/.virtual_documents/
 src/anaconda_projects/
 
 # === Amplify Gen 2 ===
-.amplify/
+.amplify/*
 amplify/.sandbox-config.json
 amplify/.temp/
 amplify/
