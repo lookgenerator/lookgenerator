@@ -48,3 +48,8 @@ src/anaconda_projects/
 .amplify
 amplify_outputs*
 amplifyconfiguration*
+
+amplify/.temp/
+amplify/
+dist/
+build/
