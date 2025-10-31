@@ -7,11 +7,13 @@ interface Props {
   role: 'user' | 'bot'
   text: string
   image?: string
+  isVideo?: boolean
   product?: ChatProduct
   products?: ChatProduct[] // 👈 importante
   onFindSimilar?: (product: ChatProduct) => void
   onGenerateLook?: (product: ChatProduct) => void
   onViewLookWorn?: (products: ChatProduct[]) => void
+  onAnimate?: (imageUrl: string) => void
   isLook?: boolean
 }
 
@@ -19,11 +21,13 @@ export default function Message({
   role,
   text,
   image,
+  isVideo,
   product,
   products,
   onFindSimilar,
   onGenerateLook,
   onViewLookWorn,
+  onAnimate,
   isLook,
 }: Props) {
   console.log('Message props:', { text, product, products })
@@ -50,18 +54,37 @@ export default function Message({
       >
         <p className="mb-2">{text}</p>
 
-{image && (
-  <div className="flex justify-center my-3">
-    <img
-      src={image}
-      alt="Imagen generada"
-      className="rounded-xl max-w-full h-auto shadow-md object-contain"
-      style={{
-        maxHeight: "600px", // 🔹 permite ver la imagen completa
-      }}
-    />
-  </div>
-)}
+        {image && (
+          <div className="flex flex-col items-center my-3">
+            {text?.includes('Video generado por IA') ? (
+              <video
+                src={image}
+                controls
+                className="rounded-xl max-w-full h-auto shadow-md object-contain"
+                style={{ maxHeight: '600px' }}
+              >
+                Tu navegador no soporta video.
+              </video>
+            ) : (
+              <img
+                src={image}
+                alt="Imagen generada"
+                className="rounded-xl max-w-full h-auto shadow-md object-contain"
+                style={{ maxHeight: '600px' }}
+              />
+            )}
+
+            {/* 🔘 Botón Animar: solo para la imagen final */}
+            {text?.includes('Imagen final generada por IA') && (
+              <button
+                className="mt-3 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition"
+                onClick={() => onAnimate?.(image)}
+              >
+                Animar
+              </button>
+            )}
+          </div>
+        )}
 
         {product && (
           <ProductCard

@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "eu-west-3_gcjesWHOX",
+    "user_pool_id": "eu-west-3_AuziaS8vs",
     "aws_region": "eu-west-3",
-    "user_pool_client_id": "1ibaign4p91jvitcjpo87bqe3u",
-    "identity_pool_id": "eu-west-3:a6e2b0fb-973e-4613-8c0c-d17050b3fc65",
+    "user_pool_client_id": "5fg6fbeekdr5811s573kj9a9mq",
+    "identity_pool_id": "eu-west-3:6957d16b-e219-4241-89df-38a949b1e3c7",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://xysl2awjuvdyvkv27d3dc6ea4y.appsync-api.eu-west-3.amazonaws.com/graphql",
+    "url": "https://wjhbbnc7eng6vcdvh5q3j37d6e.appsync-api.eu-west-3.amazonaws.com/graphql",
     "aws_region": "eu-west-3",
     "default_authorization_type": "AWS_IAM",
     "authorization_types": [

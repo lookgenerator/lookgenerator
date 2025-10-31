@@ -563,7 +563,7 @@ const handleViewLookWorn = async (products: ChatProduct[]) => {
     console.log("🧩 [1] Enviando solicitud a Lambda...");
     console.log("🧩 [1.1] Productos enviados:", products);
     // 🧩 2️⃣ Llamada directa a la función Amplify
-    const res = await fetch("https://dxg6577c55jahq2ei7qbsru67e0ysybw.lambda-url.eu-west-3.on.aws/", {
+    const res = await fetch("https://tv2pcqeois5gwff7soepl2q5bm0lsdpm.lambda-url.eu-west-3.on.aws/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ products }),
@@ -608,10 +608,6 @@ const handleViewLookWorn = async (products: ChatProduct[]) => {
         {
           role: "bot",
           text: "✅ Imagen final generada por IA:",
-        },
-        {
-          role: "bot",
-          text: "",
           image: finalImage,
         },
       ]);
@@ -638,6 +634,69 @@ const handleViewLookWorn = async (products: ChatProduct[]) => {
   }
 };
 
+// === Nueva función: animar imagen del look ===
+const handleAnimate = async (imageUrl: string) => {
+  // 🧩 1️⃣ Mensaje inicial para el usuario
+  setMessages((prev) => [
+    ...prev,
+    {
+      role: "bot",
+      text: "🎬 Generando video del look... Esto puede tardar varios minutos ⏳",
+    },
+  ]);
+
+  setIsLoading(true);
+
+  try {
+    // 🪄 2️⃣ Llamada a la función Lambda de Amplify
+    const res = await fetch("https://4eves3mja3pmztevxa7muwd3mm0dfvdo.lambda-url.eu-west-3.on.aws/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image_url: imageUrl,
+        prompt:
+          "A fashion model walking confidently down a runway, cinematic lighting, elegant atmosphere",
+      }),
+    });
+
+    const data = await res.json();
+
+    // 🧾 3️⃣ Verificar respuesta y mostrar resultado
+    if (res.ok && data.video_url) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "bot",
+          text: "✅ Video generado por IA:",
+          image: data.video_url, // URL del video generado por KlingAI
+          isVideo: true,
+        },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "bot",
+          text: `❌ No se pudo generar el video: ${
+            data.error || "Error desconocido"
+          }`,
+        },
+      ]);
+    }
+  } catch (err) {
+    console.error("❌ Error al generar el video:", err);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "bot",
+        text:
+          "❌ Ocurrió un error al generar el video. Inténtalo de nuevo más tarde.",
+      },
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div
@@ -765,6 +824,7 @@ const handleViewLookWorn = async (products: ChatProduct[]) => {
               onGenerateLook={handleGenerateLook}
               isLook={m.isLook}
               onViewLookWorn={handleViewLookWorn}
+              onAnimate={handleAnimate} 
             />
           ))}
 
